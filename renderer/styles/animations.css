@@ -1,0 +1,428 @@
+/* ════════════════════════════════════════════════════════
+   PDF AI Converter — Animations & Micro-interactions
+   ════════════════════════════════════════════════════════ */
+
+/* ── Drop Zone ───────────────────────────────────────── */
+.dropzone {
+  border: 2px dashed var(--border-active);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl) var(--space-xl);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--trans-slow);
+  background: rgba(23, 78, 166, 0.02);
+  position: relative;
+  overflow: hidden;
+}
+
+.dropzone:hover,
+.dropzone.drag-over {
+  border-color: var(--accent);
+  background: rgba(23, 78, 166, 0.08);
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(23, 78, 166, 0.15);
+}
+
+@keyframes slideInUp {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+#content .view.active {
+  animation: slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(23, 78, 166, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(23, 78, 166, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(23, 78, 166, 0); }
+}
+
+.pulse-button {
+  animation: pulseGlow 2s infinite;
+}
+
+/* ── Markdown Typewriter effect (simulated) ───────────── */
+.translate-output {
+  position: relative;
+}
+.translate-output::after {
+  content: '|';
+  position: absolute;
+  bottom: var(--space-md);
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+  color: var(--accent);
+}
+.translate-output:empty::after {
+  display: none;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes bounceDZ {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.dropzone:hover .dz-icon,
+.dropzone.drag-over .dz-icon { 
+  transform: scale(1.1);
+  animation: bounceDZ 1.5s infinite;
+}
+
+.dz-icon {
+  font-size: 56px;
+  margin-bottom: var(--space-md);
+  transition: transform var(--trans-slow);
+  filter: drop-shadow(0 4px 6px rgba(23, 78, 166, 0.2));
+}
+
+.dz-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.dz-sub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: var(--space-lg);
+}
+
+/* ── PDF Preview Panel ───────────────────────────────── */
+.preview-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--space-md);
+  height: 100%;
+  overflow: hidden;
+}
+
+.thumbnail-panel {
+  overflow-y: auto;
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  min-height: 0;
+}
+
+.thumbnail-item {
+  position: relative;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all var(--trans-md);
+  flex-shrink: 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.thumbnail-item canvas {
+  width: 100%;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.thumbnail-item:hover { 
+  border-color: var(--accent); 
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}
+.thumbnail-item.selected { border-color: var(--accent); background: var(--accent-dim); }
+.thumbnail-item.active { border-color: var(--accent-hover); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+.thumbnail-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 6px var(--space-sm) var(--space-sm);
+  font-size: 11px;
+  color: white;
+  font-weight: 500;
+}
+
+.thumbnail-checkbox {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--trans-fast);
+}
+
+.thumbnail-item.selected .thumbnail-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.thumbnail-item.selected .thumbnail-checkbox::after {
+  content: '✓';
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pdf-main-viewer {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.pdf-main-viewer canvas {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-width: 100%;
+}
+
+.pdf-zoom-controls {
+  position: absolute;
+  bottom: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 12px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+.pdf-main-viewer {
+  position: relative;
+}
+
+/* ── Convert Progress ────────────────────────────────── */
+.convert-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  flex: 1;
+  overflow: hidden;
+}
+
+.convert-pdf-panel,
+.convert-ocr-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-body { flex: 1; overflow: auto; padding: var(--space-md); }
+
+.ocr-output {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.ocr-output .ocr-page-marker {
+  color: var(--accent);
+  font-weight: 600;
+  margin: var(--space-sm) 0;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--accent-dim);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+/* ── Success Screen ──────────────────────────────────── */
+.success-icon {
+  font-size: 64px;
+  animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes successPop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Recent Files ────────────────────────────────────── */
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--trans-fast);
+}
+
+.recent-item:hover { background: var(--glass); }
+
+.recent-item-icon { font-size: 20px; }
+
+.recent-item-info { flex: 1; min-width: 0; }
+
+.recent-item-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-item-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+
+/* ── Page Progress Cards ────────────────────────────── */
+.page-progress-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  transition: all var(--trans-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.page-progress-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.page-progress-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  background: var(--bg-card-hover);
+}
+
+.page-progress-card.status-waiting { border-left-color: var(--text-muted); }
+.page-progress-card.status-extracting { border-left-color: var(--accent); background: rgba(59, 130, 246, 0.04); }
+.page-progress-card.status-translating { border-left-color: var(--warning); background: rgba(245, 158, 11, 0.04); }
+.page-progress-card.status-success { border-left-color: var(--success); background: rgba(16, 185, 129, 0.04); }
+.page-progress-card.status-error { border-left-color: var(--danger); background: rgba(239, 68, 68, 0.04); }
+
+.page-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-card-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.page-card-status-text {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.page-card-preview-btn {
+  background: none;
+  border: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  font-size: 11.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background var(--trans-fast);
+}
+.page-card-preview-btn:hover {
+  background: var(--glass);
+}
+
+.page-card-preview-area {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--trans-slow);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.page-card-preview-area.open {
+  max-height: 150px;
+  padding: var(--space-sm);
+  border: 1px solid var(--border);
+  overflow-y: auto;
+  margin-top: var(--space-sm);
+}
