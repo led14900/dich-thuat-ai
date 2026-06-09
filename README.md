@@ -1,6 +1,6 @@
 # AI Translate v1.2.2
 
-AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform. Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: giữ nguyên định dạng, tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
+AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform và Gemini API (Google AI Studio). Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: giữ nguyên định dạng, tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
 
 ## 🚀 Tải bản mới nhất
 Bản ổn định hiện tại: v1.2.2
