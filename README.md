@@ -1,19 +1,19 @@
-# AI Translate v1.2.3
+# AI Translate v1.2.4
 
 AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform và Gemini API (Google AI Studio). Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: giữ nguyên định dạng, tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
 
 ## 🚀 Tải bản mới nhất
-Bản ổn định hiện tại: v1.2.3
+Bản ổn định hiện tại: v1.2.4
 
 📥 Tải trực tiếp:
-- Bản portable không cần cài đặt: [Download AI Translate 1.2.3.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.3/AI.Translate.1.2.3.exe)
-- Bản cài đặt Setup: [Download AI Translate Setup 1.2.3.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.3/AI.Translate.Setup.1.2.3.exe)
+- Bản portable không cần cài đặt: [Download AI Translate 1.2.4.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.4/AI.Translate.1.2.4.exe)
+- Bản cài đặt Setup: [Download AI Translate Setup 1.2.4.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.4/AI.Translate.Setup.1.2.4.exe)
 
 Hoặc vào trang Releases:
 [https://github.com/led14900/dich-thuat-ai/releases/latest](https://github.com/led14900/dich-thuat-ai/releases/latest)
 
 ## ⚙️ Cách chạy
-1. Tải `AI Translate 1.2.3.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.3.exe` nếu muốn cài đặt.
+1. Tải `AI Translate 1.2.4.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.4.exe` nếu muốn cài đặt.
 2. 🖱️ Chạy trực tiếp file đã tải.
 3. ⚠️ Lưu ý: Do ứng dụng chưa được đăng ký chứng chỉ số trả phí (chưa sign publisher), Windows Defender SmartScreen có thể hiện cảnh báo bảo mật khi mở lần đầu. Bạn chỉ cần chọn **More info -> Run anyway** để sử dụng bình thường.
 
@@ -41,6 +41,21 @@ Hoặc vào trang Releases:
 - 📂 **Lưu file & Xem trước linh hoạt:** Màn hình kết quả cho phép Xem trước bản dịch Markdown dạng chỉ đọc, Xuất Markdown (.md), hoặc xuất tài liệu Word (.docx) bất cứ lúc nào. Sau khi lưu, bạn có thể mở trực tiếp file Word hoặc thư mục chứa file từ màn hình kết quả hoặc trang Lịch sử.
 - ⚙️ **Tùy biến cao:** Hỗ trợ cài đặt Font chữ khi xuất Word, DPI ảnh khi OCR, và chế độ dịch (Song ngữ xen kẽ / Chỉ bản dịch).
 - 🎨 **Giao diện hiện đại:** Thiết kế full-width (rộng tối đa) sang trọng, hỗ trợ co giãn responsive tự động (hiển thị 2 cột trên màn hình rộng và 1 cột khi thu nhỏ cửa sổ), 100% tiếng Việt, rất dễ sử dụng.
+
+## 📋 Changelog
+
+### v1.2.4 — Bản vá bảo mật (2026-06-10)
+- 🔒 **Bảo mật:** Sửa lỗi XSS tiềm ẩn trong trang Settings — credentials không còn được nhúng trực tiếp vào HTML
+- 🔒 **Bảo mật:** Bật lại `webSecurity` (Same-Origin Policy) cho renderer — thay thế bằng custom protocol an toàn hơn để tải PDF.js
+- 🔒 **Bảo mật:** Tăng cường kiểm tra path traversal — giới hạn truy cập file theo thư mục an toàn
+- 🔒 **Bảo mật (Gemini API):** API Key giờ được gửi qua header `x-goog-api-key` thay vì URL query string — tránh lộ key trong logs/network
+- 🧹 **Dọn dẹp:** Xóa dead code không được dùng trong engine
+
+### v1.2.3
+- Thêm nhà cung cấp Gemini API (Google AI Studio) hỗ trợ bản miễn phí
+- Thêm 16 template prompt chuyên ngành (Y khoa, Pháp lý, Khoa học, Tài chính, ...)
+- Dashboard thống kê token & chi phí theo ngày/tháng/năm
+- Hỗ trợ xuất Markdown trực tiếp từ màn hình kết quả
 
 ## 👨‍💻 Tác giả & Liên hệ
 - Tác giả: led14900
