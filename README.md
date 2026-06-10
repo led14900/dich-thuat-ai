@@ -18,10 +18,19 @@ Hoặc vào trang Releases:
 3. ⚠️ Lưu ý: Do ứng dụng chưa được đăng ký chứng chỉ số trả phí (chưa sign publisher), Windows Defender SmartScreen có thể hiện cảnh báo bảo mật khi mở lần đầu. Bạn chỉ cần chọn **More info -> Run anyway** để sử dụng bình thường.
 
 ## 🔑 Hướng dẫn cấu hình API
-Để sử dụng, bạn cần cung cấp thông tin xác thực cho Gemini Enterprise Agent Platform:
-1. Mở ứng dụng, vào phần **Cài đặt**.
-2. Tại mục **API Key & Xác thực**, tải lên file `Service Account JSON` của Gemini Enterprise Agent Platform.
-3. Nhấn **Xác thực** để hệ thống lấy danh sách model và kết nối.
+Ứng dụng hỗ trợ **2 phương thức xác thực**. Mở ứng dụng → **Cài đặt** → chọn nhà cung cấp AI phù hợp:
+
+### Cách 1: Gemini Enterprise Agent Platform (Vertex AI) — Trả phí, không giới hạn
+1. Chọn nhà cung cấp **Vertex AI**.
+2. Tải lên hoặc dán nội dung file `Service Account JSON` của Google Cloud.
+3. Project ID và Region sẽ tự động điền từ file JSON.
+4. Nhấn **Xác thực** → chọn model → **Kiểm tra & Lưu cài đặt**.
+
+### Cách 2: Gemini API (Google AI Studio) — Miễn phí, giới hạn RPM
+1. Chọn nhà cung cấp **Gemini API**.
+2. Nhập **API Key** lấy từ [Google AI Studio](https://aistudio.google.com/apikey).
+3. Nhấn **Xác thực** → chọn model → **Kiểm tra & Lưu cài đặt**.
+4. ⚠️ **Lưu ý bản Free:** Bị giới hạn số lượt gọi/phút (RPM) và lượt/ngày (RPD). Bạn **bắt buộc** phải chỉnh **"Delay giữa các request"** lên **5s–12s** ở phần Xử lý để tránh lỗi quá tải 429. Google có thể dùng dữ liệu dịch để huấn luyện mô hình — tránh dịch tài liệu nhạy cảm.
 
 ## ✨ Tính năng chính của AI Translate
 - 📄 **Dịch thuật PDF chuyên nghiệp:** Kéo thả trực tiếp file PDF để tải lên và bắt đầu dịch.
