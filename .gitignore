@@ -1,0 +1,24 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+*.rar
+*.zip
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dev source code (ignored on git but kept locally)
+main.js
+preload.js
+package.json
+package-lock.json
+lib/
+renderer/
+scripts/
+build/
+Frontend/
+renderer_v1.1/
