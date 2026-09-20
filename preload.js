@@ -112,6 +112,14 @@ contextBridge.exposeInMainWorld('api', {
     add: (record) => ipcRenderer.invoke('stats:add', record)
   },
 
+  // Run checkpoints — persist each finished page so a long run survives a crash
+  checkpoint: {
+    append: (runId, record) => ipcRenderer.invoke('checkpoint:append', { runId, record }),
+    read: (runId) => ipcRenderer.invoke('checkpoint:read', runId),
+    list: () => ipcRenderer.invoke('checkpoint:list'),
+    clear: (runId) => ipcRenderer.invoke('checkpoint:clear', runId)
+  },
+
   // Event listeners (tracked for proper cleanup)
   on: addListener,
   off: removeListener,

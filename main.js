@@ -64,6 +64,7 @@ function createWindow() {
 let settingsManager;
 let historyManager;
 let statsManager;
+let checkpointManager;
 
 // App Lifecycle
 // ────────────────────────────────────────
@@ -78,6 +79,11 @@ app.whenReady().then(() => {
   const StatsManager = require('./lib/stats-manager');
   statsManager = new StatsManager(app.getPath('userData'));
   statsManager.ensureStatsInitialized(historyManager);
+
+  const RunCheckpointManager = require('./lib/run-checkpoint-manager');
+  checkpointManager = new RunCheckpointManager(app.getPath('userData'));
+  // Runs abandoned long ago are never resumed — do not let them accumulate.
+  checkpointManager.pruneOlderThan(7);
 
   // ── Register 'localfile:' custom protocol to serve local ESM modules (pdfjs) ──
   // This replaces webSecurity:false which was needed for file:// dynamic imports.
@@ -434,6 +440,14 @@ ipcMain.handle('history:delete', (event, id) => historyManager.deleteEntry(id));
 ipcMain.handle('history:clear', () => historyManager.clearAll());
 
 // Stats
+// ── Run checkpoints ──────────────────────────────────────────────
+// Each finished page is persisted immediately so a cancel or crash on page 2400
+// of 2500 does not throw away the whole run.
+ipcMain.handle('checkpoint:append', (event, { runId, record }) => checkpointManager.append(runId, record));
+ipcMain.handle('checkpoint:read', (event, runId) => checkpointManager.read(runId));
+ipcMain.handle('checkpoint:list', () => checkpointManager.list());
+ipcMain.handle('checkpoint:clear', (event, runId) => checkpointManager.clear(runId));
+
 ipcMain.handle('stats:getAll', () => statsManager.getAll());
 ipcMain.handle('stats:deleteOlderThan', (event, days) => statsManager.deleteOlderThan(days));
 ipcMain.handle('stats:clearAll', () => statsManager.clearAll());

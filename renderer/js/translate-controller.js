@@ -47,6 +47,149 @@ window.TranslateController = (() => {
     el.innerHTML = `<strong>${totalTokens.toLocaleString()}</strong> tokens &#183; <span style="color:var(--accent)">${costStr}</span>`;
   }
 
+  // ── Run checkpoints ─────────────────────────────────────────────
+  //
+  // Nothing used to reach disk until all pages had resolved, so cancelling at
+  // page 2400 of 2500 discarded every page already paid for. Each finished page
+  // is now written out immediately.
+
+  /**
+   * Persist one finished page. Deliberately swallows errors: a checkpoint is a
+   * safety net, and failing to write one must never kill a working run.
+   */
+  async function saveCheckpoint(result) {
+    if (!currentRunId || !window.api?.checkpoint) return;
+    try {
+      await window.api.checkpoint.append(currentRunId, {
+        page: result.page,
+        markdown: result.markdown || '',
+        bilingualSections: result.bilingualSections || null,
+        skipped: !!result.skipped,
+        error: result.error || null,
+        savedAt: Date.now(),
+      });
+    } catch (err) {
+      console.warn('[checkpoint] không lưu được trang', result.page, err.message);
+    }
+  }
+
+  /** Recover pages already finished for a run — used after a cancel or crash. */
+  async function loadCheckpoint(runId) {
+    if (!runId || !window.api?.checkpoint) return [];
+    try {
+      return await window.api.checkpoint.read(runId);
+    } catch (err) {
+      console.warn('[checkpoint] không đọc được:', err.message);
+      return [];
+    }
+  }
+
+  async function clearCheckpoint(runId) {
+    if (!runId || !window.api?.checkpoint) return;
+    try {
+      await window.api.checkpoint.clear(runId);
+    } catch { /* leaving a stale checkpoint behind is harmless; pruned after 7 days */ }
+  }
+
+  // ── Progress cards ──────────────────────────────────────────────
+  //
+  // Each card is ~8 DOM nodes and used to carry 3 event listeners of its own,
+  // all created up front. At 100 pages that is fine; at 2500 it is ~20k nodes
+  // and ~7.5k listeners built in one go, which freezes the window on startup.
+  //
+  // So: render everything up front only for documents small enough to scroll
+  // through, and above that create cards on demand, keeping a bounded number
+  // alive. Clicks are handled by one delegated listener either way.
+
+  // Render all cards up front at or below this many pages.
+  const CARD_EAGER_LIMIT = 300;
+  // Cards kept in the DOM when running lazily. Errors are never dropped.
+  const CARD_KEEP_ALIVE = 150;
+
+  let cardsAreLazy = false;
+  let cardSettings = null;
+  let progressDelegationBound = false;
+
+  function pageCardHTML(pageNum) {
+    return `
+        <div class="page-progress-card status-waiting" id="page-card-${pageNum}" data-page="${pageNum}" style="cursor: pointer;">
+          <div class="page-card-header">
+            <div class="page-card-title">
+              <span>Trang ${pageNum}</span>
+            </div>
+            <div class="page-card-status-text" id="page-status-${pageNum}">
+              ⏳ Đang chờ...
+            </div>
+          </div>
+          <div class="page-card-micro-progress" style="height: 3px; background: var(--border); margin-top: 8px; border-radius: 2px; overflow: hidden; display: none;" id="page-progress-bar-container-${pageNum}">
+            <div id="page-progress-bar-${pageNum}" style="height: 100%; width: 100%; background: var(--accent); transition: width 0.3s ease; animation: pulse-opacity 1.5s infinite;"></div>
+          </div>
+          <button class="page-card-preview-btn" id="page-btn-preview-${pageNum}" style="display:none; text-align: left; width: fit-content; margin-top: 8px;">📄 Xem văn bản</button>
+          <button class="btn btn-secondary btn-sm" id="page-btn-retry-${pageNum}" style="display:none; width: fit-content; margin-top: 4px;">🔄 Thử lại</button>
+          <div class="page-card-preview-area" id="page-preview-${pageNum}"></div>
+        </div>
+      `;
+  }
+
+  function setupPageProgress(selectedPages, settings) {
+    const container = document.getElementById('page-progress-container');
+    if (!container) return;
+
+    cardSettings = settings;
+    cardsAreLazy = selectedPages.length > CARD_EAGER_LIMIT;
+
+    container.innerHTML = cardsAreLazy
+      ? `<div class="page-progress-note" id="page-progress-note" style="padding:8px 0;opacity:.75;font-size:13px;">
+           Tài liệu ${selectedPages.length} trang — chỉ hiển thị các trang gần đây để giữ giao diện mượt.
+         </div>`
+      : selectedPages.map(pageCardHTML).join('');
+
+    // One delegated listener for the whole list, instead of three per card.
+    if (!progressDelegationBound) {
+      progressDelegationBound = true;
+      container.addEventListener('click', (e) => {
+        const card = e.target.closest?.('.page-progress-card');
+        if (!card) return;
+        const pageNum = Number(card.dataset.page);
+        if (!Number.isFinite(pageNum)) return;
+
+        if (e.target.closest('.page-card-preview-btn')) {
+          e.stopPropagation();
+          togglePagePreview(pageNum);
+          return;
+        }
+        if (e.target.closest('#page-btn-retry-' + pageNum)) {
+          e.stopPropagation();
+          retryPage(pageNum, cardSettings);
+          return;
+        }
+        if (e.target.classList.contains('page-card-preview-area')) return;
+        selectPageCard(pageNum);
+      });
+    }
+  }
+
+  /** Create this page's card if lazy mode dropped or never made it. */
+  function ensurePageCard(pageNum) {
+    if (document.getElementById(`page-card-${pageNum}`)) return;
+    const container = document.getElementById('page-progress-container');
+    if (!container) return;
+
+    container.insertAdjacentHTML('beforeend', pageCardHTML(pageNum));
+    if (!cardsAreLazy) return;
+
+    // Retire the oldest finished cards. Errors stay so "Thử lại" remains reachable.
+    const cards = container.querySelectorAll('.page-progress-card');
+    let excess = cards.length - CARD_KEEP_ALIVE;
+    for (const card of cards) {
+      if (excess <= 0) break;
+      if (card.classList.contains('status-success')) {
+        card.remove();
+        excess--;
+      }
+    }
+  }
+
   function selectPageCard(pageNum) {
     document.querySelectorAll('.page-progress-card').forEach(c => c.classList.remove('active'));
     const card = document.getElementById(`page-card-${pageNum}`);
@@ -126,6 +269,7 @@ window.TranslateController = (() => {
 
   // ── Shared core: extract + translate a single page ──────────────
   async function processPageCore(pageNum, buffer, settings, idSuffix = '', textContent = null) {
+    ensurePageCard(pageNum);
     const card = document.getElementById(`page-card-${pageNum}`);
     const statusText = document.getElementById(`page-status-${pageNum}`);
     const retryLabel = idSuffix ? ' (Thử lại)' : '';
@@ -287,53 +431,14 @@ window.TranslateController = (() => {
     document.getElementById('progress-estimated').textContent = 'Còn: Đang tính...';
     document.getElementById('translate-pulse').style.display = 'flex';
 
-    // Pre-render the progress cards
-    const pageProgressContainer = document.getElementById('page-progress-container');
-    if (pageProgressContainer) {
-      pageProgressContainer.innerHTML = selectedPages.map(pageNum => `
-        <div class="page-progress-card status-waiting" id="page-card-${pageNum}" style="cursor: pointer;">
-          <div class="page-card-header">
-            <div class="page-card-title">
-              <span>Trang ${pageNum}</span>
-            </div>
-            <div class="page-card-status-text" id="page-status-${pageNum}">
-              ⏳ Đang chờ...
-            </div>
-          </div>
-          <div class="page-card-micro-progress" style="height: 3px; background: var(--border); margin-top: 8px; border-radius: 2px; overflow: hidden; display: none;" id="page-progress-bar-container-${pageNum}">
-            <div id="page-progress-bar-${pageNum}" style="height: 100%; width: 100%; background: var(--accent); transition: width 0.3s ease; animation: pulse-opacity 1.5s infinite;"></div>
-          </div>
-          <button class="page-card-preview-btn" id="page-btn-preview-${pageNum}" style="display:none; text-align: left; width: fit-content; margin-top: 8px;">📄 Xem văn bản</button>
-          <button class="btn btn-secondary btn-sm" id="page-btn-retry-${pageNum}" style="display:none; width: fit-content; margin-top: 4px;">🔄 Thử lại</button>
-          <div class="page-card-preview-area" id="page-preview-${pageNum}"></div>
-        </div>
-      `).join('');
-      
-      // Bind clicks
-      selectedPages.forEach(pageNum => {
-        const card = document.getElementById(`page-card-${pageNum}`);
-        card?.addEventListener('click', (e) => {
-          if (e.target.classList.contains('page-card-preview-btn') || e.target.classList.contains('page-card-preview-area')) {
-            return;
-          }
-          selectPageCard(pageNum);
-        });
-        
-        const btn = document.getElementById(`page-btn-preview-${pageNum}`);
-        btn?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          togglePagePreview(pageNum);
-        });
-        
-        const retryBtn = document.getElementById(`page-btn-retry-${pageNum}`);
-        retryBtn?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          retryPage(pageNum, settings);
-        });
-      });
-    }
+    // Prepare the progress cards. Below the threshold every card is rendered up
+    // front as before; above it they are created on demand and old finished ones
+    // are dropped (see ensurePageCard), because 2500 cards is ~20k DOM nodes and
+    // freezes the window before the first page is even sent.
+    setupPageProgress(selectedPages, settings);
 
     // Set first card active immediately
+    ensurePageCard(selectedPages[0]);
     selectPageCard(selectedPages[0]);
 
     const dpi = settings.dpi || 300;
@@ -367,6 +472,9 @@ window.TranslateController = (() => {
           const result = await processPageCore(pageNum, currentBuffer, settings, '', textContent);
           currentBuffer = null; // Free memory
 
+          // Persist before anything else can go wrong with the rest of the run.
+          await saveCheckpoint(result);
+
           processed++;
           pageTimes.push(Date.now() - pageStart);
           const pct = 0.1 + (processed / total) * 0.8;
@@ -377,6 +485,7 @@ window.TranslateController = (() => {
 
           return result;
         } catch (err) {
+          ensurePageCard(pageNum);
           const card = document.getElementById(`page-card-${pageNum}`);
           const statusText = document.getElementById(`page-status-${pageNum}`);
           if (card) {
@@ -397,7 +506,10 @@ window.TranslateController = (() => {
           updateElapsed();
           updateETA(processed, total);
 
-          return { page: pageNum, markdown: '', skipped: false, error: err.message };
+          const failed = { page: pageNum, markdown: '', skipped: false, error: err.message };
+          // Record failures too, so a resumed run knows which pages still need work.
+          await saveCheckpoint(failed);
+          return failed;
         }
       };
 
@@ -435,8 +547,14 @@ window.TranslateController = (() => {
       }
 
       const pageResults = await Promise.all(results);
-      // Guard: if cancelled while awaiting final promises, bail out immediately
+      // Guard: if cancelled while awaiting final promises, bail out immediately.
+      // What was finished is already on disk — recoverable rather than discarded.
       if (abortController.signal.aborted) {
+        const saved = await loadCheckpoint(thisRunId);
+        if (saved.length > 0) {
+          currentPageResults = saved;
+          console.log(`[checkpoint] giữ lại ${saved.length} trang đã dịch xong trước khi huỷ`);
+        }
         return;
       }
 
@@ -463,6 +581,10 @@ window.TranslateController = (() => {
       lastInputPath = filePath;
       lastOutputPath = null;
       currentHistoryId = null;
+
+      // The whole run is aggregated in memory and about to be saved — the
+      // checkpoint has done its job and would otherwise sit there forever.
+      await clearCheckpoint(thisRunId);
 
       const elapsed = Date.now() - startTime;
       const successCount = pageResults.filter(r => !r.error && !r.skipped).length;
@@ -656,6 +778,9 @@ window.TranslateController = (() => {
       }
 
       const result = await processPageCore(pageNum, buffer, settings, '-retry', null);
+
+      // A later line for the same page supersedes the earlier failure on read.
+      await saveCheckpoint(result);
 
       // Update stored results so DOCX output will be correct
       const idx = currentPageResults.findIndex(r => r.page === pageNum);
