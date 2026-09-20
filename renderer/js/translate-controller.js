@@ -28,6 +28,9 @@ window.TranslateController = (() => {
 
   // Track page results for retry updates + page timing for ETA
   let currentPageResults = [];
+  // Dem trang dich xong. Khong the dem lai tu the DOM: tu ban 1.2.9 the cu bi
+  // thu hoi de giu DOM nho, nen dem the se thieu o tai lieu hang nghin trang.
+  let successPageCount = 0;
   const pageTimes = [];
 
   // Track accumulated token usage and cost
@@ -400,6 +403,8 @@ window.TranslateController = (() => {
       appendPageOutput(pageNum, result.markdown + '\n');
     }
 
+    successPageCount++;
+
     // Update card to success
     if (card) {
       card.className = 'page-progress-card status-success';
@@ -418,6 +423,31 @@ window.TranslateController = (() => {
   }
 
   // ── Main conversion flow ────────────────────────────────────────
+
+  /**
+   * Stitch finished pages into one markdown document.
+   *
+   * Both the end of a run and a retry need exactly this, and they used to carry
+   * their own copy — which is how a formatting change could land in one and not
+   * the other. Callers pass an already page-sorted array.
+   */
+  function buildFullMarkdown(results) {
+    const parts = [];
+    for (const r of results) {
+      if (r.skipped || r.error) continue;
+      if (r.bilingualSections) {
+        for (const sec of r.bilingualSections) {
+          if (sec.original) parts.push(`${sec.original}\n\n`);
+          if (sec.translation) parts.push(`*${sec.translation}*\n\n`);
+        }
+      } else {
+        parts.push(`${r.markdown}\n\n`);
+      }
+      parts.push('\n\n---\n\n');
+    }
+    return parts.join('').trim();
+  }
+
   async function startConvert(filePath, selectedPages) {
     const settings = await window.api.settings.load();
     UIManager.showView('convert');
@@ -445,6 +475,8 @@ window.TranslateController = (() => {
     lastOutputPath = null;
     currentRunId = resumed ? resumed.runId : createRunId();
     currentPageResults = resumed ? resumed.doneResults : [];
+    // Chay tiep: cac trang lan truoc da xong van tinh la thanh cong.
+    successPageCount = resumed ? resumed.doneResults.length : 0;
     pageTimes.length = 0;
     totalInputTokens = 0;
     totalOutputTokens = 0;
@@ -514,6 +546,17 @@ window.TranslateController = (() => {
     const total = selectedPages.length;
     // Pages recovered from a checkpoint already count as done for the progress bar.
     let processed = resumed ? resumed.doneResults.length : 0;
+
+    // Mot trang vua xong — dung chung cho ca nhanh thanh cong lan nhanh loi,
+    // vi ca hai deu phai day thanh tien do va ETA giong het nhau.
+    const advancePageProgress = (pageStart) => {
+      processed++;
+      pageTimes.push(Date.now() - pageStart);
+      peakProgress = Math.max(peakProgress, 0.1 + (processed / total) * 0.8);
+      updateProgress(peakProgress, `Trang ${processed}/${total}`);
+      updateElapsed();
+      updateETA(processed, total);
+    };
     let peakProgress = 0; // High-water mark — progress bar chỉ tăng, không bao giờ giảm
 
     // Let a future run find this checkpoint and know what document it belongs to.
@@ -568,13 +611,7 @@ window.TranslateController = (() => {
           // Persist before anything else can go wrong with the rest of the run.
           await saveCheckpoint(result);
 
-          processed++;
-          pageTimes.push(Date.now() - pageStart);
-          const pct = 0.1 + (processed / total) * 0.8;
-          peakProgress = Math.max(peakProgress, pct);
-          updateProgress(peakProgress, `Trang ${processed}/${total}`);
-          updateElapsed();
-          updateETA(processed, total);
+          advancePageProgress(pageStart);
 
           return result;
         } catch (err) {
@@ -591,13 +628,7 @@ window.TranslateController = (() => {
           }
           appendPageOutput(pageNum, `\n\n[Lỗi xử lý trang: ${err.message}]\n`);
           
-          processed++;
-          pageTimes.push(Date.now() - pageStart);
-          const pct = 0.1 + (processed / total) * 0.8;
-          peakProgress = Math.max(peakProgress, pct);
-          updateProgress(peakProgress, `Trang ${processed}/${total}`);
-          updateElapsed();
-          updateETA(processed, total);
+          advancePageProgress(pageStart);
 
           const failed = { page: pageNum, markdown: '', skipped: false, error: err.message };
           // Record failures too, so a resumed run knows which pages still need work.
@@ -660,21 +691,7 @@ window.TranslateController = (() => {
       currentPageResults = pageResults; // Store for retry access
 
       // Aggregate full markdown for history
-      let fullMarkdown = '';
-      for (const r of pageResults) {
-        if (r.skipped || r.error) continue;
-        if (r.bilingualSections) {
-           for (const sec of r.bilingualSections) {
-              if (sec.original) fullMarkdown += `${sec.original}\n\n`;
-              if (sec.translation) fullMarkdown += `*${sec.translation}*\n\n`;
-           }
-        } else {
-           fullMarkdown += `${r.markdown}\n\n`;
-        }
-        fullMarkdown += `\n\n---\n\n`;
-      }
-      
-      lastFullMarkdown = fullMarkdown.trim();
+      lastFullMarkdown = buildFullMarkdown(pageResults);
       lastInputPath = filePath;
       lastOutputPath = null;
       currentHistoryId = null;
@@ -892,22 +909,8 @@ window.TranslateController = (() => {
       currentPageResults.sort((a, b) => a.page - b.page);
 
       // Re-aggregate full markdown
-      let fullMarkdown = '';
-      let successCount = 0;
-      for (const r of currentPageResults) {
-        if (r.skipped || r.error) continue;
-        successCount++;
-        if (r.bilingualSections) {
-           for (const sec of r.bilingualSections) {
-              if (sec.original) fullMarkdown += `${sec.original}\n\n`;
-              if (sec.translation) fullMarkdown += `*${sec.translation}*\n\n`;
-           }
-        } else {
-           fullMarkdown += `${r.markdown}\n\n`;
-        }
-        fullMarkdown += `\n\n---\n\n`;
-      }
-      lastFullMarkdown = fullMarkdown.trim();
+      lastFullMarkdown = buildFullMarkdown(currentPageResults);
+      const successCount = currentPageResults.filter(r => !r.skipped && !r.error).length;
 
       // Update database history record with updated successCount, tokens, cost, and markdown
       if (currentHistoryId) {
@@ -1027,13 +1030,7 @@ window.TranslateController = (() => {
       const selected = PDFRenderer.getSelectedPages();
       const total = (selected && selected.length) ? selected.length : 1;
       
-      // Calculate how many page progress cards have status-success class
-      let successCount = 0;
-      document.querySelectorAll('.page-progress-card').forEach(card => {
-        if (card.classList.contains('status-success')) {
-          successCount++;
-        }
-      });
+      const successCount = successPageCount;
 
       // Record token usage and cost spent so far into stats database
       if (totalInputTokens + totalOutputTokens > 0) {
