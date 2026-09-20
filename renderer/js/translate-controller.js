@@ -57,10 +57,19 @@ window.TranslateController = (() => {
   }
 
   /**
-   * Render ALL pages' output concatenated in the translate-output panel.
-   * This ensures the user sees the complete translation growing as pages finish.
-   * Uses requestAnimationFrame to throttle DOM updates during streaming.
+   * Render the live preview panel.
+   *
+   * This used to concatenate EVERY page into one string and assign it to
+   * textContent — on every streaming chunk. That is O(total document) per
+   * chunk, so cost grows with the square of the document size: fine at 100
+   * pages (~0.3 MB rebuilt per frame), a hard UI freeze at 2500 (~7.5 MB).
+   *
+   * The panel is a live progress view, not the deliverable — the complete
+   * translation goes to the output file. So only the most recent pages are
+   * shown, which keeps every rebuild bounded no matter how long the document is.
    */
+  const PREVIEW_PAGE_WINDOW = 50;
+
   let _renderPending = false;
   function renderFullOutput() {
     if (_renderPending) return;
@@ -71,21 +80,36 @@ window.TranslateController = (() => {
       if (!el) return;
 
       const sortedPages = Object.keys(pageOutputs).map(Number).sort((a, b) => a - b);
-      let fullText = '';
-      for (const pg of sortedPages) {
-        if (pageOutputs[pg]) {
-          fullText += pageOutputs[pg];
-          fullText += '\n\n';
-        }
+      const shown = sortedPages.slice(-PREVIEW_PAGE_WINDOW);
+      const hidden = sortedPages.length - shown.length;
+
+      const parts = [];
+      if (hidden > 0) {
+        parts.push(
+          `--- Đã dịch xong ${hidden} trang trước đó ` +
+          `(chỉ hiển thị ${shown.length} trang gần nhất — bản đầy đủ nằm trong file kết quả) ---\n`
+        );
       }
-      el.textContent = fullText;
+      for (const pg of shown) {
+        if (pageOutputs[pg]) parts.push(pageOutputs[pg], '\n\n');
+      }
+
+      el.textContent = parts.join('');
       el.scrollTop = el.scrollHeight;
     });
   }
 
   function appendPageOutput(pageNum, text) {
     pageOutputs[pageNum] = (pageOutputs[pageNum] || '') + text;
-    // Always re-render full output so users see all pages
+
+    // Drop page text that has scrolled out of the preview window. Without this,
+    // a 2500-page run keeps every page's text alive purely to display none of it.
+    const pages = Object.keys(pageOutputs);
+    if (pages.length > PREVIEW_PAGE_WINDOW * 2) {
+      const stale = pages.map(Number).sort((a, b) => a - b).slice(0, -PREVIEW_PAGE_WINDOW);
+      for (const pg of stale) delete pageOutputs[pg];
+    }
+
     renderFullOutput();
   }
 
