@@ -130,8 +130,7 @@ window.TranslateController = (() => {
     });
 
     // dialog.confirm resolves truthy for the first button
-    // dialog:confirm luôn trả boolean, nên hai nhánh số tôi viết phòng xa
-    // trước đây là không thể xảy ra.
+    // dialog:confirm luôn trả boolean.
     const wantsResume = ok === true;
     if (!wantsResume) {
       await clearCheckpoint(found.runId);
@@ -201,7 +200,7 @@ window.TranslateController = (() => {
 
     container.innerHTML = cardsAreLazy
       ? `<div class="page-progress-note" id="page-progress-note" style="padding:8px 0;opacity:.75;font-size:13px;">
-           Tài liệu ${selectedPages.length} trang — chỉ hiển thị các trang gần đây để giữ giao diện mượt.
+           Chỉ hiển thị các trang gần đây nhất.
          </div>`
       : selectedPages.map(pageCardHTML).join('');
 
@@ -296,8 +295,7 @@ window.TranslateController = (() => {
       const parts = [];
       if (hidden > 0) {
         parts.push(
-          `--- Đã dịch xong ${hidden} trang trước đó ` +
-          `(chỉ hiển thị ${shown.length} trang gần nhất — bản đầy đủ nằm trong file kết quả) ---\n`
+          '--- Chỉ hiển thị các trang gần đây nhất ---\n'
         );
       }
       for (const pg of shown) {
