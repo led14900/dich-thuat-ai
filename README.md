@@ -63,30 +63,17 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 ## 📋 Changelog
 
 ### v1.2.9 — Chạy được tài liệu hàng nghìn trang (2026-09-20)
-
-Bản 1.2.8 chạy tốt với vài trang đến khoảng 100 trang, nhưng dự án 2500
-trang thì bị treo. Bản này tìm và sửa từng nguyên nhân một.
-
-**Nguyên nhân chính khiến app đứng im**
-- 🐛 **Request treo vô hạn:** `fetch()` không bao giờ tự bỏ cuộc. Một proxy nhận kết nối rồi im lặng, hoặc một luồng SSE thiếu dấu kết thúc, sẽ làm app chờ mãi — trang đó giữ một luồng xử lý vĩnh viễn, và đủ vài trang như vậy là cả lần dịch không bao giờ kết thúc. Với 100 trang thì hiếm gặp; với 2500 trang là khoảng 5000 request nên gần như chắc chắn xảy ra. Nay có đồng hồ canh: 90 giây chờ máy chủ trả lời, 120 giây im lặng giữa luồng (hẹn lại sau mỗi mẩu dữ liệu, nên stream chậm mà đều vẫn chạy bình thường). Trang quá hạn được ghi là lỗi để lần dịch đi tiếp, bấm "Thử lại" là xong.
-
-**Bộ nhớ**
-- ⚡ **Render ảnh thẳng ở kích thước cần:** trước đây trang được vẽ ở 300–600 DPI rồi mới thu nhỏ còn 2000px. Ảnh gửi đi vẫn y hệt, nhưng ảnh trung gian thì khổng lồ — A4 ở 600 DPI là 132,7 MB, nay còn 10,8 MB. Với 5 trang chạy song song: gần 700 MB xuống còn khoảng 54 MB.
-- ⚡ **PDF.js trả lại tài nguyên:** mỗi trang vẽ xong nay được giải phóng font, ảnh và dữ liệu vẽ. Mở file thứ hai nay đóng hẳn file thứ nhất thay vì để nó nằm lại tới khi tắt app. Ảnh thu nhỏ trong danh sách trang giới hạn 80 cái thay vì giữ cả 2500.
-- ⚡ **Dùng lại provider:** trước đây mỗi lần OCR và mỗi lần dịch đều dựng mới. Riêng Vertex AI thì mỗi lần dựng mới là một lượt xin token, tức khoảng 5000 lượt cho tài liệu 2500 trang.
-
-**Không mất công đã làm**
-- 🐛 **Giữ checkpoint tới khi thật sự an toàn:** trước đây checkpoint bị xoá ngay khi dịch xong, trước lúc lưu vào lịch sử. App sập đúng khoảnh khắc đó là mất trắng 2500 trang vừa trả tiền API. Nay chỉ xoá sau khi lưu xong; lưu hỏng thì giữ lại để còn "Chạy tiếp".
-- 🐛 **Đếm đúng số trang khi huỷ:** màn hình huỷ đếm bằng cách quét thẻ trên giao diện, mà thẻ cũ nay bị thu hồi để giữ giao diện nhẹ — nên tài liệu nhiều trang báo thiếu rất nhiều. Nay đếm bằng con số thật.
-
-**Trải nghiệm**
-- 🐛 **Tạm dừng nay dừng thật:** bấm Tạm dừng trong lúc app đang chờ giữa hai request thì trang tiếp theo vẫn bị gửi đi — nhìn như đã dừng mà vẫn tốn tiền API.
-- 🐛 **Thời gian còn lại đúng hơn:** trước đây không chia cho số trang chạy song song nên báo dài gấp hai, gấp ba sự thật.
-- ⚡ **Giao diện không chậm dần:** phép tính thời gian còn lại quét lại toàn bộ lịch sử sau mỗi trang; hàm chờ để sót hàng nghìn bộ lắng nghe trong một lần chạy dài.
-
-**Bên trong**
-- 🐛 **Đo đúng dung lượng ảnh:** giới hạn được ghi là "sau khi mã hoá" nhưng lại so với dung lượng thô. Mã hoá base64 cộng thêm đúng 1/3, nên trần 4 MB thực ra cho qua tới 5,33 MB — vượt chính ngưỡng nó sinh ra để chặn.
-- 🧹 **Dọn code:** gom 4 khối bị chép hai bản (nguy hiểm nhất là đoạn ghép file kết quả, sửa một bản quên bản kia là file xuất và bản thử lại lệch nhau), xoá 173 dòng không nơi nào dùng đến.
+- 🐛 **Sửa lỗi treo khi dịch tài liệu lớn:** `fetch()` không có thời gian chờ, nên một proxy nhận kết nối rồi im lặng, hoặc một luồng SSE thiếu dấu kết thúc, sẽ làm trang đó chờ mãi và cả lần dịch không bao giờ xong. Với 100 trang thì hiếm gặp; với 2500 trang là khoảng 5000 request nên gần như chắc chắn xảy ra. Nay đặt hạn 90 giây chờ máy chủ trả lời và 120 giây không nhận được dữ liệu (tính lại sau mỗi lần nhận, nên stream chậm mà đều vẫn chạy bình thường). Trang quá hạn tính là lỗi để lần dịch đi tiếp, bấm "Thử lại" để chạy lại.
+- ⚡ **Render ảnh đúng kích thước cần gửi:** trước đây trang được render ở 300–600 DPI rồi mới thu nhỏ còn 2000px. Ảnh gửi đi không đổi nhưng canvas trung gian rất lớn: A4 ở 600 DPI là 132,7 MB, nay còn 10,8 MB. Với 5 trang chạy song song: khoảng 700 MB xuống còn khoảng 54 MB.
+- ⚡ **PDF.js giải phóng tài nguyên:** gọi `page.cleanup()` sau mỗi lần render, đóng hẳn file cũ khi mở file mới, và giới hạn cache ảnh thu nhỏ ở 80 trang thay vì giữ cả 2500.
+- ⚡ **Dùng lại provider thay vì dựng mới mỗi request:** riêng Vertex AI, mỗi lần dựng mới là một lượt xin OAuth token, tức khoảng 5000 lượt cho tài liệu 2500 trang, đủ để dính rate limit.
+- 🐛 **Không mất tiến độ khi lưu lịch sử hỏng:** checkpoint trước đây bị xóa ngay khi dịch xong, trước lúc lưu lịch sử. App tắt đúng lúc đó là mất toàn bộ kết quả đã gọi API. Nay chỉ xóa sau khi lưu xong, lưu hỏng thì giữ lại để còn "Chạy tiếp".
+- 🐛 **Tạm dừng có hiệu lực ngay:** bấm Tạm dừng trong lúc đang chờ giữa hai request thì trang tiếp theo vẫn được gửi đi. Nay kiểm tra lại trạng thái sau khi hết thời gian chờ.
+- 🐛 **Thời gian còn lại tính đúng:** trước đây không chia cho số trang chạy song song nên báo dài gấp hai đến gấp ba.
+- 🐛 **Đếm đúng số trang đã dịch khi hủy:** màn hình hủy đếm bằng cách quét thẻ trên giao diện, nhưng thẻ cũ đã bị thu hồi để giữ DOM nhỏ, nên tài liệu nhiều trang báo thiếu.
+- ⚡ **Giao diện không chậm dần trong lần chạy dài:** bỏ phép tính thời gian còn lại quét lại toàn bộ lịch sử sau mỗi trang, và gỡ listener bị sót trong hàm chờ.
+- 🐛 **Đo đúng dung lượng ảnh sau mã hóa:** giới hạn ghi là "sau khi mã hóa" nhưng lại so với byte thô. Base64 cộng thêm 1/3, nên trần 4 MB thực tế cho qua tới 5,33 MB.
+- 🧹 **Dọn code:** gom 4 khối bị lặp hai bản, xóa 173 dòng không nơi nào dùng đến.
 
 ### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
 - ✨ **Nhà cung cấp mới — OpenAI Compatible:** Thêm lựa chọn nhà cung cấp thứ ba, dùng được với mọi endpoint nói chuẩn `/v1/chat/completions`: AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, cùng các server local như Ollama / LM Studio / vLLM / LiteLLM.
