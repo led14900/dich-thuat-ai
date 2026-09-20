@@ -222,8 +222,7 @@
   overflow: hidden;
 }
 
-.convert-pdf-panel,
-.convert-ocr-panel {
+.convert-pdf-panel {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
@@ -246,26 +245,6 @@
 }
 
 .panel-body { flex: 1; overflow: auto; padding: var(--space-md); }
-
-.ocr-output {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-}
-
-.ocr-output .ocr-page-marker {
-  color: var(--accent);
-  font-weight: 600;
-  margin: var(--space-sm) 0;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--accent-dim);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-size: 11px;
-}
 
 /* ── Success Screen ──────────────────────────────────── */
 .success-icon {
