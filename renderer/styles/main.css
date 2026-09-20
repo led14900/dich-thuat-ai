@@ -18,7 +18,6 @@
 
   --accent:         #c8502d; /* terracotta */
   --accent-hover:   #a0381b; /* darker terracotta */
-  --accent-glow:    rgba(200, 80, 45, 0.2);
   --accent-dim:     #f6e6df; /* accentSoft */
 
   --success:        #2d6a3f;
@@ -43,13 +42,11 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
-  --space-2xl: 48px;
 
   /* Border radius */
   --radius-sm:  4px;
   --radius-md:  4px;
   --radius-lg:  4px;
-  --radius-xl:  4px;
   --radius-full: 9999px;
 
   /* Shadows */
@@ -60,7 +57,6 @@
   --shadow-sm:  var(--shadow-flat-sm);
   --shadow-md:  var(--shadow-flat-md);
   --shadow-lg:  var(--shadow-flat-lg);
-  --shadow-glow: var(--shadow-flat-md);
 
   /* Typography */
   --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;

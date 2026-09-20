@@ -48,7 +48,6 @@ contextBridge.exposeInMainWorld('api', {
   dialog: {
     openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
     saveFile: (defaultName) => ipcRenderer.invoke('dialog:saveFile', defaultName),
-    openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
     confirm: (opts) => ipcRenderer.invoke('dialog:confirm', opts),
   },
 
@@ -78,7 +77,6 @@ contextBridge.exposeInMainWorld('api', {
   ai: {
     testConnection: (opts) => ipcRenderer.invoke('ai:testConnection', opts),
     listModels: (opts) => ipcRenderer.invoke('ai:listModels', opts),
-    abort: (requestId) => ipcRenderer.send('ai:abort', { requestId }),
     abortAll: () => ipcRenderer.send('ai:abortAll'),
   },
 
@@ -116,7 +114,6 @@ contextBridge.exposeInMainWorld('api', {
   checkpoint: {
     append: (runId, record) => ipcRenderer.invoke('checkpoint:append', { runId, record }),
     read: (runId) => ipcRenderer.invoke('checkpoint:read', runId),
-    list: () => ipcRenderer.invoke('checkpoint:list'),
     clear: (runId) => ipcRenderer.invoke('checkpoint:clear', runId),
     saveMeta: (runId, meta) => ipcRenderer.invoke('checkpoint:saveMeta', { runId, meta }),
     findForFile: (filePath) => ipcRenderer.invoke('checkpoint:findForFile', filePath)

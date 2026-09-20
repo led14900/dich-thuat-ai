@@ -300,17 +300,6 @@ ipcMain.handle('dialog:saveFile', async (event, defaultName) => {
   return canceled ? null : filePath;
 });
 
-ipcMain.handle('dialog:openFolder', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-    title: 'Chọn thư mục lưu',
-    properties: ['openDirectory']
-  });
-  if (!canceled && filePaths && filePaths[0]) {
-    registerAllowedPath(filePaths[0]);
-  }
-  return canceled ? null : filePaths[0];
-});
-
 ipcMain.handle('dialog:confirm', async (event, { message, title, type = 'question', buttons }) => {
   if (!mainWindow) return false;
   // Callers may name the two buttons ("Chạy tiếp" / "Dịch lại từ đầu"); the
@@ -450,7 +439,6 @@ ipcMain.handle('history:clear', () => historyManager.clearAll());
 // of 2500 does not throw away the whole run.
 ipcMain.handle('checkpoint:append', (event, { runId, record }) => checkpointManager.append(runId, record));
 ipcMain.handle('checkpoint:read', (event, runId) => checkpointManager.read(runId));
-ipcMain.handle('checkpoint:list', () => checkpointManager.list());
 ipcMain.handle('checkpoint:clear', (event, runId) => checkpointManager.clear(runId));
 ipcMain.handle('checkpoint:saveMeta', (event, { runId, meta }) => checkpointManager.saveMeta(runId, meta));
 ipcMain.handle('checkpoint:findForFile', (event, filePath) => checkpointManager.findForFile(filePath));
@@ -472,14 +460,6 @@ ipcMain.handle('docx:generate', async (event, { pages, settings, outputPath }) =
 
 // Track active AI requests for abort support
 const activeAbortControllers = new Map();
-
-ipcMain.on('ai:abort', (event, { requestId }) => {
-  const controller = activeAbortControllers.get(requestId);
-  if (controller) {
-    controller.abort();
-    activeAbortControllers.delete(requestId);
-  }
-});
 
 ipcMain.on('ai:abortAll', () => {
   for (const [id, controller] of activeAbortControllers) {

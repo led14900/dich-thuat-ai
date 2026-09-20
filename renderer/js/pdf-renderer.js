@@ -342,30 +342,12 @@ window.PDFRenderer = (() => {
   }
 
   function getSelectedPages() { return [...selectedPages].sort((a, b) => a - b); }
-  function getTotalPages() { return totalPages; }
   function getCurrentFilePath() { return currentFilePath; }
   function getCurrentPageNum() { return currentPageNum; }
-
-  async function clear() {
-    await destroyCurrentDocument();
-    currentFilePath = null;
-    selectedPages.clear();
-    thumbnailCache.clear();
-    totalPages = 0;
-    const canvas = document.getElementById('pdf-main-canvas');
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    const panel = document.getElementById('thumbnail-panel');
-    if (panel) panel.innerHTML = '';
-    updateSelectionUI();
-  }
 
   return {
     loadFile, renderMainPage, renderPageForOCR,
     selectAll, deselectAll,
-    getSelectedPages, getTotalPages, getCurrentFilePath, getCurrentPageNum,
-    clear
+    getSelectedPages, getCurrentFilePath, getCurrentPageNum,
   };
 })();

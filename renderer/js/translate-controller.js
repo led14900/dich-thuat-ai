@@ -130,7 +130,9 @@ window.TranslateController = (() => {
     });
 
     // dialog.confirm resolves truthy for the first button
-    const wantsResume = ok === true || ok === 0 || ok?.response === 0;
+    // dialog:confirm luôn trả boolean, nên hai nhánh số tôi viết phòng xa
+    // trước đây là không thể xảy ra.
+    const wantsResume = ok === true;
     if (!wantsResume) {
       await clearCheckpoint(found.runId);
       return null;

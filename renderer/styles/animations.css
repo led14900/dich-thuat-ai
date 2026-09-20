@@ -246,19 +246,6 @@
 
 .panel-body { flex: 1; overflow: auto; padding: var(--space-md); }
 
-/* ── Success Screen ──────────────────────────────────── */
-.success-icon {
-  font-size: 64px;
-  animation: successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes successPop {
-  from { transform: scale(0); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* Redundant stat-card styles combined below */
-
 .stat-value {
   font-size: 28px;
   font-weight: 700;
