@@ -70,6 +70,8 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 - 🐛 Bấm Huỷ không còn làm tụt tỉ lệ thành công.
 - 🐛 Lịch sử và thống kê không mất khi máy tắt đột ngột lúc đang ghi.
 - 🐛 Lần dịch bỏ dở quá 7 ngày được đưa vào Lịch sử trước khi dọn.
+- 🧹 Xóa lịch sử nay xóa luôn phần thống kê của lần dịch đó. Xóa toàn bộ lịch sử là xóa sạch thống kê.
+- 🐛 Dọn thống kê theo số ngày: báo rõ khi không có bản ghi nào đủ cũ, thay vì "Đã xóa 0 bản ghi".
 
 ### v1.2.9 — Chạy được tài liệu hàng nghìn trang (2026-09-20)
 - 🐛 Sửa lỗi treo khi dịch tài liệu lớn: trang không nhận được phản hồi nay tự bỏ qua sau ít phút và tính là lỗi, bấm "Thử lại" để chạy lại trang đó.
