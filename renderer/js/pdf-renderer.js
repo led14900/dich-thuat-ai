@@ -11,6 +11,27 @@ window.PDFRenderer = (() => {
   let currentPageNum = 1;
   const thumbnailCache = new Map();
   let thumbnailObserver = null;
+  // Giữ cả loadingTask, không chỉ proxy: chỉ loadingTask.destroy() mới thật sự
+  // giải phóng worker và bộ nhớ của tài liệu cũ.
+  let currentLoadingTask = null;
+
+  // Trần cache thumbnail. Trước đây Map này không có giới hạn, nên cuộn hết
+  // 2500 trang là giữ 2500 data URL PNG — hàng trăm MB nằm lại vô thời hạn.
+  const THUMBNAIL_CACHE_MAX = 80;
+
+  // Cạnh dài tối đa của ảnh gửi cho AI, khớp với BaseProvider.MAX_IMAGE_EDGE.
+  // Render thẳng ở mức này thay vì render 300–600 DPI rồi mới thu nhỏ: A4 ở
+  // 300 DPI là canvas RGBA ~35 MB, ở 600 DPI là ~139 MB. Với 5 trang song song
+  // thì riêng canvas đã gần 700 MB — rồi tất cả bị vứt đi sau khi thu nhỏ.
+  const OCR_MAX_EDGE = 2000;
+
+  function rememberThumbnail(pageNum, dataUrl) {
+    thumbnailCache.set(pageNum, dataUrl);
+    // Map giữ thứ tự chèn, nên khoá đầu tiên là khoá cũ nhất.
+    while (thumbnailCache.size > THUMBNAIL_CACHE_MAX) {
+      thumbnailCache.delete(thumbnailCache.keys().next().value);
+    }
+  }
 
   async function loadPdfJs() {
     if (pdfjsLib) return pdfjsLib;
@@ -59,9 +80,11 @@ window.PDFRenderer = (() => {
     if (currentFilePath !== filePath) {
       thumbnailCache.clear();
     }
+    // Mở file thứ hai mà không huỷ file thứ nhất thì worker, font và ảnh của
+    // tài liệu cũ nằm lại cho tới khi đóng app.
+    await destroyCurrentDocument();
     currentFilePath = filePath;
     selectedPages.clear();
-    currentPDF = null;
 
     const lib = await loadPdfJs();
 
@@ -87,6 +110,7 @@ window.PDFRenderer = (() => {
       cMapPacked: true,
     });
 
+    currentLoadingTask = loadingTask;
     currentPDF = await loadingTask.promise;
     totalPages = currentPDF.numPages;
 
@@ -118,6 +142,9 @@ window.PDFRenderer = (() => {
           
           if (!canvas.dataset.rendered) {
             canvas.dataset.rendered = 'true';
+            // Vẽ xong rồi thì không cần theo dõi nữa; 2500 mục vẫn nằm trong
+            // observer là chi phí thừa mỗi lần cuộn.
+            thumbnailObserver.unobserve(item);
             
             if (thumbnailCache.has(pageNum)) {
                const img = new Image();
@@ -130,7 +157,7 @@ window.PDFRenderer = (() => {
                img.src = thumbnailCache.get(pageNum);
             } else {
                renderPageToCanvas(pageNum, canvas, 0.25).then(() => {
-                 thumbnailCache.set(pageNum, canvas.toDataURL('image/png'));
+                 rememberThumbnail(pageNum, canvas.toDataURL('image/png'));
                }).catch(() => {
                  const ctx = canvas.getContext('2d');
                  canvas.width = 120; canvas.height = 160;
@@ -212,8 +239,25 @@ window.PDFRenderer = (() => {
       canvas._renderTask = renderTask;
       await renderTask.promise;
       canvas._renderTask = null;
+      // Pixel đã nằm trên canvas — operator list, font và ảnh của trang không
+      // còn cần giữ. Không gọi thì mỗi trang đi qua đều để lại phần của nó.
+      page.cleanup();
     } catch (err) {
       if (err?.name !== 'RenderingCancelledException') throw err;
+    }
+  }
+
+  /** Đóng tài liệu đang mở và dọn mọi thứ bám theo nó. */
+  async function destroyCurrentDocument() {
+    if (thumbnailObserver) {
+      thumbnailObserver.disconnect();
+      thumbnailObserver = null;
+    }
+    const task = currentLoadingTask;
+    currentLoadingTask = null;
+    currentPDF = null;
+    if (task) {
+      try { await task.destroy(); } catch { /* đang tải dở cũng không sao */ }
     }
   }
 
@@ -223,15 +267,24 @@ window.PDFRenderer = (() => {
    */
   async function renderPageForOCR(pageNum, dpi = 300) {
     if (!currentPDF) throw new Error('Chưa tải file PDF');
-    const scale = dpi / 72; // PDF default is 72 DPI
     const page = await currentPDF.getPage(pageNum);
+
+    // Kẹp thẳng ở đây thay vì render to rồi thu nhỏ sau. Ảnh gửi đi vẫn y hệt,
+    // nhưng đỉnh bộ nhớ giảm vài chục lần và bỏ hẳn một lượt resize.
+    const base = page.getViewport({ scale: 1 });
+    const longEdgePt = Math.max(base.width, base.height);
+    const scale = Math.min(dpi / 72, OCR_MAX_EDGE / longEdgePt);
     const viewport = page.getViewport({ scale });
 
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    try {
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    } finally {
+      page.cleanup();
+    }
 
     return new Promise((resolve, reject) => {
       canvas.toBlob(blob => {
@@ -293,10 +346,11 @@ window.PDFRenderer = (() => {
   function getCurrentFilePath() { return currentFilePath; }
   function getCurrentPageNum() { return currentPageNum; }
 
-  function clear() {
+  async function clear() {
+    await destroyCurrentDocument();
     currentFilePath = null;
-    currentPDF = null;
     selectedPages.clear();
+    thumbnailCache.clear();
     totalPages = 0;
     const canvas = document.getElementById('pdf-main-canvas');
     if (canvas) {
