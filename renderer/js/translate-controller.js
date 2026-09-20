@@ -84,6 +84,60 @@ window.TranslateController = (() => {
     }
   }
 
+  /**
+   * If this document has an unfinished run, ask whether to continue it.
+   * @returns {Promise<{runId: string, donePages: Set<number>, doneResults: Array}|null>}
+   */
+  async function offerResume(filePath, selectedPages) {
+    if (!filePath || !window.api?.checkpoint?.findForFile) return null;
+
+    let found;
+    try {
+      found = await window.api.checkpoint.findForFile(filePath);
+    } catch {
+      return null;
+    }
+    if (!found?.runId) return null;
+
+    const saved = await loadCheckpoint(found.runId);
+    // Only successful pages count — a page that failed still needs doing.
+    const done = saved.filter(r => !r.error && !r.skipped && r.markdown);
+    const wanted = new Set(selectedPages);
+    const usable = done.filter(r => wanted.has(r.page));
+
+    if (usable.length === 0) {
+      await clearCheckpoint(found.runId);
+      return null;
+    }
+
+    const remaining = selectedPages.length - usable.length;
+    const when = found.savedAt ? new Date(found.savedAt).toLocaleString('vi-VN') : 'lần trước';
+    const ok = await window.api.dialog.confirm({
+      title: 'Chạy tiếp lần dịch dang dở?',
+      type: 'question',
+      message:
+        `Tài liệu này có một lần dịch chưa hoàn tất (${when}).\n\n` +
+        `Đã dịch xong: ${usable.length} trang\n` +
+        `Còn lại: ${remaining} trang\n\n` +
+        `Chọn "Chạy tiếp" để chỉ dịch ${remaining} trang còn lại.\n` +
+        `Chọn "Dịch lại từ đầu" sẽ bỏ kết quả cũ và gọi lại API cho cả ${selectedPages.length} trang.`,
+      buttons: ['Chạy tiếp', 'Dịch lại từ đầu'],
+    });
+
+    // dialog.confirm resolves truthy for the first button
+    const wantsResume = ok === true || ok === 0 || ok?.response === 0;
+    if (!wantsResume) {
+      await clearCheckpoint(found.runId);
+      return null;
+    }
+
+    return {
+      runId: found.runId,
+      donePages: new Set(usable.map(r => r.page)),
+      doneResults: usable,
+    };
+  }
+
   async function clearCheckpoint(runId) {
     if (!runId || !window.api?.checkpoint) return;
     try {
@@ -223,7 +277,13 @@ window.TranslateController = (() => {
       if (!el) return;
 
       const sortedPages = Object.keys(pageOutputs).map(Number).sort((a, b) => a - b);
-      const shown = sortedPages.slice(-PREVIEW_PAGE_WINDOW);
+      const window_ = new Set(sortedPages.slice(-PREVIEW_PAGE_WINDOW));
+      // Retrying an early page while the run is far ahead would otherwise leave
+      // the user watching a panel that never mentions the page they retried.
+      if (activePreviewPageNum != null && pageOutputs[activePreviewPageNum] != null) {
+        window_.add(activePreviewPageNum);
+      }
+      const shown = sortedPages.filter(p => window_.has(p));
       const hidden = sortedPages.length - shown.length;
 
       const parts = [];
@@ -250,7 +310,10 @@ window.TranslateController = (() => {
     const pages = Object.keys(pageOutputs);
     if (pages.length > PREVIEW_PAGE_WINDOW * 2) {
       const stale = pages.map(Number).sort((a, b) => a - b).slice(0, -PREVIEW_PAGE_WINDOW);
-      for (const pg of stale) delete pageOutputs[pg];
+      for (const pg of stale) {
+        if (pg === activePreviewPageNum) continue; // the page the user is watching
+        delete pageOutputs[pg];
+      }
     }
 
     renderFullOutput();
@@ -372,12 +435,16 @@ window.TranslateController = (() => {
     window.api.removeAllListeners('usage:stats');
     activeRequestIds.clear();
 
+    // Offer to continue an earlier run on this same document instead of paying
+    // for every page again. Declining starts fresh and drops the old checkpoint.
+    const resumed = await offerResume(filePath, selectedPages);
+
     abortController = new AbortController();
     isPaused = false;
     startTime = Date.now();
     lastOutputPath = null;
-    currentRunId = createRunId();
-    currentPageResults = [];
+    currentRunId = resumed ? resumed.runId : createRunId();
+    currentPageResults = resumed ? resumed.doneResults : [];
     pageTimes.length = 0;
     totalInputTokens = 0;
     totalOutputTokens = 0;
@@ -420,7 +487,9 @@ window.TranslateController = (() => {
     // Reset status outputs — clear ALL keys from previous runs to prevent memory leak
     Object.keys(pageOutputs).forEach(k => delete pageOutputs[k]);
     activePreviewPageNum = selectedPages[0];
-    selectedPages.forEach(p => { pageOutputs[p] = ''; });
+    // Deliberately NOT pre-seeding every page: the preview window shows the
+    // highest-numbered pages that have output, so seeding all 2500 up front
+    // would park the window on empty trailing pages and show nothing at all.
 
     // Update UI
     document.getElementById('convert-title').textContent = '⏳ Đang xử lý tài liệu...';
@@ -443,8 +512,30 @@ window.TranslateController = (() => {
 
     const dpi = settings.dpi || 300;
     const total = selectedPages.length;
-    let processed = 0;
+    // Pages recovered from a checkpoint already count as done for the progress bar.
+    let processed = resumed ? resumed.doneResults.length : 0;
     let peakProgress = 0; // High-water mark — progress bar chỉ tăng, không bao giờ giảm
+
+    // Let a future run find this checkpoint and know what document it belongs to.
+    if (currentRunId && window.api?.checkpoint?.saveMeta) {
+      window.api.checkpoint.saveMeta(currentRunId, {
+        filePath,
+        totalPages: selectedPages.length,
+        startedAt: Date.now(),
+      }).catch(() => { /* metadata is a convenience, never fail the run over it */ });
+    }
+
+    if (resumed) {
+      // Show the recovered pages as already finished instead of silently skipping them.
+      for (const r of resumed.doneResults) {
+        ensurePageCard(r.page);
+        const card = document.getElementById(`page-card-${r.page}`);
+        const statusText = document.getElementById(`page-status-${r.page}`);
+        if (card) card.className = 'page-progress-card status-success';
+        if (statusText) statusText.textContent = '✅ Đã dịch (lần trước)';
+      }
+      UIManager.toast(`Chạy tiếp: bỏ qua ${resumed.doneResults.length} trang đã dịch xong`, 'info');
+    }
 
     try {
       const ext = filePath.split('.').pop().toLowerCase();
@@ -452,7 +543,9 @@ window.TranslateController = (() => {
 
       if (ext === 'pdf') {
         // Step 1: Just get the list of pages. Rendering will happen on-demand per page
-        pageItems = PDFRenderer.getSelectedPages().map(p => ({ pageNum: p, buffer: null, textContent: null }));
+        pageItems = PDFRenderer.getSelectedPages()
+          .filter(p => !resumed || !resumed.donePages.has(p))
+          .map(p => ({ pageNum: p, buffer: null, textContent: null }));
       }
 
       if (abortController.signal.aborted) return;
@@ -557,6 +650,10 @@ window.TranslateController = (() => {
         }
         return;
       }
+
+      // Pages recovered from a checkpoint were never re-run, so they are absent
+      // from pageResults — merge them back in or a resumed run loses them.
+      if (resumed) pageResults.push(...resumed.doneResults);
 
       // Ensure results are sorted numerically by page number
       pageResults.sort((a, b) => a.page - b.page);
@@ -764,6 +861,8 @@ window.TranslateController = (() => {
     const retryBtn = document.getElementById(`page-btn-retry-${pageNum}`);
     if (retryBtn) retryBtn.style.display = 'none';
     pageOutputs[pageNum] = ''; // Reset log
+    // Keep the retried page in the preview window even if the run is far past it
+    selectPageCard(pageNum);
 
     try {
       let buffer = null;

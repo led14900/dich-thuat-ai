@@ -311,11 +311,16 @@ ipcMain.handle('dialog:openFolder', async () => {
   return canceled ? null : filePaths[0];
 });
 
-ipcMain.handle('dialog:confirm', async (event, { message, title, type = 'question' }) => {
+ipcMain.handle('dialog:confirm', async (event, { message, title, type = 'question', buttons }) => {
   if (!mainWindow) return false;
+  // Callers may name the two buttons ("Chạy tiếp" / "Dịch lại từ đầu"); the
+  // default keeps every existing call site behaving exactly as before.
+  const labels = Array.isArray(buttons) && buttons.length === 2
+    ? buttons
+    : ['Xác nhận', 'Hủy bỏ'];
   const { response } = await dialog.showMessageBox(mainWindow, {
     type,
-    buttons: ['Xác nhận', 'Hủy bỏ'],
+    buttons: labels,
     defaultId: 0,
     cancelId: 1,
     title: title || 'Xác nhận',
@@ -447,6 +452,8 @@ ipcMain.handle('checkpoint:append', (event, { runId, record }) => checkpointMana
 ipcMain.handle('checkpoint:read', (event, runId) => checkpointManager.read(runId));
 ipcMain.handle('checkpoint:list', () => checkpointManager.list());
 ipcMain.handle('checkpoint:clear', (event, runId) => checkpointManager.clear(runId));
+ipcMain.handle('checkpoint:saveMeta', (event, { runId, meta }) => checkpointManager.saveMeta(runId, meta));
+ipcMain.handle('checkpoint:findForFile', (event, filePath) => checkpointManager.findForFile(filePath));
 
 ipcMain.handle('stats:getAll', () => statsManager.getAll());
 ipcMain.handle('stats:deleteOlderThan', (event, days) => statsManager.deleteOlderThan(days));
