@@ -70,6 +70,7 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 - 🐛 Thời gian còn lại hiển thị đúng hơn.
 - 🐛 Đếm đúng số trang đã dịch khi bấm Hủy.
 - ⚡ Giao diện không chậm dần trong lần chạy dài.
+- 🐛 Mở lại file trong "File gần đây" sau khi khởi động lại app không còn báo "Đường dẫn không hợp lệ" với file nằm ngoài Documents / Downloads / Desktop.
 
 ### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
 - ✨ Thêm nhà cung cấp thứ ba — OpenAI Compatible: dùng được với OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, AI Render, và server chạy tại máy như Ollama / LM Studio / vLLM / LiteLLM.
