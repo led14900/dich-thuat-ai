@@ -204,7 +204,6 @@ ${STEPS_HTML}
       if (keyInput) keyInput.value = currentSettings.geminiAPI?.apiKey || '';
     } else if (provider === 'openai-compatible') {
       const cfg = currentSettings.openaiCompatible || {};
-      const visionChecked = cfg.supportsVision !== false ? ' checked' : '';
 
       // SECURITY: Do NOT inject baseUrl/apiKey/model into innerHTML — assigned via DOM API below.
       container.innerHTML = `
@@ -243,14 +242,6 @@ ${STEPS_HTML}
         </div>
         <span class="text-xs text-muted">Chỉ dùng để ước tính chi phí trong trang Thống kê. Để 0 nếu không cần.</span>
 
-        <div class="input-group mt-md">
-          <label class="input-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" id="setting-oai-vision"${visionChecked} style="width:16px;height:16px;cursor:pointer">
-            <span>Model hỗ trợ ảnh (vision)</span>
-          </label>
-          <span class="text-xs text-muted mt-sm">Bắt buộc bật để OCR/dịch file PDF (app gửi từng trang dưới dạng ảnh PNG). Tắt nếu model chỉ nhận văn bản.</span>
-        </div>
-
         <!-- Compatibility note -->
         <div class="card warning-card" style="margin-top: 16px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); padding: 12px; border-radius: var(--radius-md);">
           <div style="display: flex; gap: 8px; align-items: start;">
@@ -260,7 +251,7 @@ ${STEPS_HTML}
             <div style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;">
               <strong style="color: #f59e0b;">Lưu ý khi dùng endpoint tùy chỉnh:</strong><br>
               • Endpoint phải hỗ trợ <strong>streaming</strong> (<code>"stream": true</code>) theo chuẩn SSE của OpenAI.<br>
-              • Để <strong>dịch file PDF</strong>, model bắt buộc phải nhận ảnh (vision). Model chỉ-văn-bản vẫn dùng được cho chức năng dịch text.<br>
+              • Để <strong>dịch file PDF</strong>, model phải nhận được ảnh (vision) — app gửi mỗi trang dưới dạng ảnh, tự thu nhỏ còn tối đa 2000px và nén JPEG để tránh vượt giới hạn dung lượng của endpoint.<br>
               • Nút <strong>Xác thực</strong> đọc danh sách model qua <code>GET /models</code>. Server không hỗ trợ endpoint này thì chọn <strong>"✍️ Tự nhập Model ID"</strong>.<br>
               • Dữ liệu dịch sẽ được gửi tới nhà cung cấp bạn cấu hình — cân nhắc với tài liệu nhạy cảm.
             </div>
@@ -561,7 +552,6 @@ ${STEPS_HTML}
         baseUrl: q('setting-oai-baseurl')?.value?.trim() || '',
         apiKey: q('setting-oai-key')?.value?.trim() || '',
         model: modelValue || '',
-        supportsVision: q('setting-oai-vision')?.checked !== false,
         pricingInput: parseFloat(q('setting-oai-price-in')?.value) || 0,
         pricingOutput: parseFloat(q('setting-oai-price-out')?.value) || 0,
       };
@@ -615,7 +605,6 @@ ${STEPS_HTML}
           baseUrl: q('setting-oai-baseurl')?.value?.trim() || '',
           apiKey: q('setting-oai-key')?.value?.trim() || '',
           model: currentSettings.openaiCompatible?.model || '',
-          supportsVision: q('setting-oai-vision')?.checked !== false,
           pricingInput: parseFloat(q('setting-oai-price-in')?.value) || 0,
           pricingOutput: parseFloat(q('setting-oai-price-out')?.value) || 0,
         },
