@@ -643,45 +643,6 @@ textarea.input {
 }
 
 
-/* ── Accordion (Settings) ────────────────────────────── */
-.accordion-item {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  margin-bottom: var(--space-sm);
-}
-
-.accordion-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md);
-  cursor: pointer;
-  background: var(--bg-card);
-  user-select: none;
-  transition: background var(--trans-fast);
-}
-
-.accordion-header:hover { background: var(--bg-card-hover); }
-
-.accordion-header .chevron {
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
-  transition: transform var(--trans-md);
-}
-
-.accordion-item.open .accordion-header .chevron { transform: rotate(180deg); }
-
-.accordion-body {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height var(--trans-slow);
-  background: var(--bg-input);
-}
-
-.accordion-item.open .accordion-body { max-height: 800px; }
-.accordion-content { padding: var(--space-md); }
 
 /* ── Convert Translate Panel ─────────────────────────── */
 .convert-layout { display: flex; gap: var(--space-md); }

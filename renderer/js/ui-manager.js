@@ -67,7 +67,3 @@ window.UIManager = (() => {
   return { showView, toast, formatTime, formatSize, escapeHtml };
 })();
 
-// Accordion toggle
-function toggleAccordion(id) {
-  document.getElementById(id)?.classList.toggle('open');
-}
