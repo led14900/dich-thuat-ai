@@ -70,6 +70,8 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 - 🐛 Thời gian còn lại hiển thị đúng hơn.
 - 🐛 Đếm đúng số trang đã dịch khi bấm Hủy.
 - ⚡ Giao diện không chậm dần trong lần chạy dài.
+- ✨ Huỷ hoặc tắt app giữa chừng: phần đã dịch nay được lưu vào Lịch sử và đánh dấu "Chưa hoàn tất", xem lại và xuất file được ngay.
+- 🧹 Xóa mục trong Lịch sử nay xóa luôn dữ liệu dở dang của lần dịch đó.
 - 🐛 Mở lại file trong "File gần đây" sau khi khởi động lại app không còn báo "Đường dẫn không hợp lệ" với file nằm ngoài Documents / Downloads / Desktop.
 
 ### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
