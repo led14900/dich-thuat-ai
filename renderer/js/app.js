@@ -223,8 +223,12 @@ window.App = (() => {
     loadRecentFiles();
 
     // Lần dịch bị đứt vì app tắt giữa chừng: ghi phần đã dịch vào Lịch sử.
-    TranslateController.recoverUnfinishedRuns().catch(err =>
-      console.error('Lỗi khôi phục lần dịch dang dở:', err));
+    // Dọn checkpoint cũ phải chạy SAU khi khôi phục, không thì một lần dịch bỏ
+    // dở 8 ngày trước bị xoá trước khi kịp vào Lịch sử.
+    TranslateController.recoverUnfinishedRuns()
+      .catch(err => console.error('Lỗi khôi phục lần dịch dang dở:', err))
+      .then(() => window.api?.checkpoint?.prune?.(7))
+      .catch(() => { /* dọn dẹp hỏng thì thôi, không ảnh hưởng người dùng */ });
 
     // Update provider badge in sidebar
     await updateProviderBadge();

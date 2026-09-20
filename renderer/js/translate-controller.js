@@ -31,6 +31,10 @@ window.TranslateController = (() => {
   // Dem trang dich xong. Khong the dem lai tu the DOM: tu ban 1.2.9 the cu bi
   // thu hoi de giu DOM nho, nen dem the se thieu o tai lieu hang nghin trang.
   let successPageCount = 0;
+  // Trang da xong tu lan chay truoc (Chay tiep). Thong ke chi duoc cong phan
+  // moi, khong thi mot tai lieu 10 trang huy o trang 4 roi chay tiep se thanh
+  // 14 trang tren Dashboard.
+  let resumedPageCount = 0;
   const pageTimes = [];
   let pageTimeTotalMs = 0;          // tổng chạy sẵn, tránh reduce() O(n²)
   let concurrentPagesForETA = 1;    // ETA phải biết có bao nhiêu trang chạy song song
@@ -200,6 +204,7 @@ window.TranslateController = (() => {
           elapsedMs: 0,
           outputPath: '',
           success: false,
+          status: 'interrupted',
           runId: run.runId,
           markdownContent: markdown
         });
@@ -537,6 +542,10 @@ window.TranslateController = (() => {
     lastOutputPath = null;
     currentRunId = resumed ? resumed.runId : createRunId();
     currentPageResults = resumed ? resumed.doneResults : [];
+    // Khong reset o day thi id cua TAI LIEU TRUOC con sot lai: mo file moi roi
+    // huy ngay se tuong la da luu lich su va bo qua nhanh ghi thong ke.
+    currentHistoryId = null;
+    resumedPageCount = resumed ? resumed.doneResults.length : 0;
     // Chay tiep: cac trang lan truoc da xong van tinh la thanh cong.
     successPageCount = resumed ? resumed.doneResults.length : 0;
     pageTimes.length = 0;
@@ -782,6 +791,9 @@ window.TranslateController = (() => {
       const elapsed = Date.now() - startTime;
       const successCount = pageResults.filter(r => !r.error && !r.skipped).length;
       const pct = Math.round((successCount / pageResults.length) * 100);
+      // Truoc day lan chay nao cung ghi success: true, nen tai lieu 10 trang
+      // hong 5 trang van hien y het nhu dich tron ven.
+      const runStatus = successCount === pageResults.length ? 'completed' : 'partial';
 
       // Save history immediately (outputPath starts empty)
       // Guard: double-check we haven't been aborted between the promise resolution and here
@@ -792,6 +804,9 @@ window.TranslateController = (() => {
           inputType: filePath.split('.').pop().toLowerCase(),
           pageCount: total,
           pagesProcessed: successCount,
+          // Lich su giu tong de nguoi dung thay "10/10"; thong ke chi nhan
+          // phan dich trong lan chay nay.
+          pagesDelta: Math.max(0, successCount - resumedPageCount),
           sourceLang: settings.sourceLanguage || 'auto',
           targetLang: settings.translateLanguage,
           translateMode: settings.translateMode || 'bilingual',
@@ -800,7 +815,8 @@ window.TranslateController = (() => {
           costUSD: totalCostUSD,
           elapsedMs: elapsed,
           outputPath: '',
-          success: true,
+          success: runStatus === 'completed',
+          status: runStatus,
           runId: thisRunId,
           markdownContent: lastFullMarkdown
         });
@@ -970,6 +986,30 @@ window.TranslateController = (() => {
     // Keep the retried page in the preview window even if the run is far past it
     selectPageCard(pageNum);
 
+    // Lần chạy chính gỡ listener 'usage:stats' trong finally, nên nếu không
+    // nghe riêng ở đây thì token và chi phí của "Thử lại" biến mất khỏi cả màn
+    // hình, Lịch sử lẫn Thống kê. Dùng off() chứ không removeAllListeners để
+    // không cắt mất listener của lần chạy đang diễn ra.
+    let retryTokens = 0;
+    let retryCostUSD = 0;
+    const onRetryUsage = ({ usageStats }) => {
+      if (!usageStats) return;
+      const inTok = usageStats.inputTokens || 0;
+      const outTok = usageStats.outputTokens || 0;
+      retryTokens += inTok + outTok;
+      retryCostUSD += usageStats.costUSD || 0;
+      totalInputTokens += inTok;
+      totalOutputTokens += outTok;
+      totalCostUSD += usageStats.costUSD || 0;
+      updateUsageDisplay();
+    };
+    window.api.on('usage:stats', onRetryUsage);
+
+    // Trang này trước đó hỏng hay đã xong? Chỉ khi hỏng -> xong mới là thêm
+    // một trang dịch được, không thì bấm Thử lại nhiều lần sẽ thổi phồng số.
+    const prevResult = currentPageResults.find(r => r.page === pageNum);
+    const prevFailed = !prevResult || !!prevResult.error || !!prevResult.skipped;
+
     try {
       let buffer = null;
       let textContent = null;
@@ -1018,6 +1058,29 @@ window.TranslateController = (() => {
         }
       }
 
+      // Mỗi bản ghi thống kê là một phiên xử lý. Cập nhật Lịch sử không chạm
+      // tới Thống kê, nên phải ghi riêng phần vừa phát sinh ở đây.
+      const gainedPage = prevFailed && !result.error && !result.skipped ? 1 : 0;
+      if (retryTokens > 0 || gainedPage) {
+        try {
+          await window.api.stats.add({
+            inputFile: filePath,
+            runId: currentRunId,
+            status: 'retry',
+            pageCount: 0,
+            pagesProcessed: gainedPage,
+            sourceLang: settings.sourceLanguage || 'auto',
+            targetLang: settings.translateLanguage,
+            model: ProviderUtils.resolveProviderModel(settings),
+            totalTokens: retryTokens,
+            costUSD: retryCostUSD,
+            success: !result.error && !result.skipped,
+          });
+        } catch (err) {
+          console.warn('Không ghi được thống kê khi thử lại:', err.message);
+        }
+      }
+
       UIManager.toast(`Đã thử lại thành công trang ${pageNum}`, 'success');
     } catch (err) {
       const card = document.getElementById(`page-card-${pageNum}`);
@@ -1030,6 +1093,8 @@ window.TranslateController = (() => {
         if (retryBtn) retryBtn.style.display = 'block';
       }
       appendPageOutput(pageNum, `\n\n[Lỗi xử lý trang: ${err.message}]\n`);
+    } finally {
+      window.api.off('usage:stats', onRetryUsage);
     }
   }
 
@@ -1153,6 +1218,7 @@ window.TranslateController = (() => {
             inputType: (lastInputPath || '').split('.').pop().toLowerCase(),
             pageCount: total,
             pagesProcessed: successCount,
+            pagesDelta: Math.max(0, successCount - resumedPageCount),
             sourceLang: settings.sourceLanguage || 'auto',
             targetLang: settings.translateLanguage,
             translateMode: settings.translateMode || 'bilingual',
@@ -1162,6 +1228,7 @@ window.TranslateController = (() => {
             elapsedMs: startTime ? (Date.now() - startTime) : 0,
             outputPath: '',
             success: false,
+            status: 'cancelled',
             runId: currentRunId,
             markdownContent: lastFullMarkdown
           });
@@ -1178,8 +1245,11 @@ window.TranslateController = (() => {
       if (!currentHistoryId && totalInputTokens + totalOutputTokens > 0) {
         try {
           await window.api.stats.add({
+            inputFile: lastInputPath || PDFRenderer.getCurrentFilePath(),
+            runId: currentRunId,
+            status: 'cancelled',
             pageCount: total,
-            pagesProcessed: successCount,
+            pagesProcessed: Math.max(0, successCount - resumedPageCount),
             sourceLang: settings.sourceLanguage || 'auto',
             targetLang: settings.translateLanguage,
             model: ProviderUtils.resolveProviderModel(settings),

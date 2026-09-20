@@ -123,15 +123,39 @@ window.DashboardUI = (() => {
     });
 
     // 1. Calculate basic statistics
-    const totalFiles = filtered.length;
+    //
+    // "Tổng tài liệu" đếm theo đường dẫn file, không phải số bản ghi. Dịch đi
+    // dịch lại cùng một file vẫn là MỘT tài liệu; số lần dịch nằm ở thẻ riêng.
+    // Bản ghi cũ (trước 1.2.10) không có documentKey/runId nên được đếm mỗi
+    // bản một đơn vị, giữ nguyên con số người dùng đã quen thấy.
+    const docKeys = new Set();
+    const runKeys = new Set();
+    filtered.forEach((item, i) => {
+      docKeys.add(item.documentKey || `cu:${i}`);
+      runKeys.add(item.runId || `cu:${i}`);
+    });
+    const totalFiles = docKeys.size;
+    const totalRuns = runKeys.size;
+
     const totalTokens = filtered.reduce((sum, item) => sum + (item.totalTokens || 0), 0);
     const totalCost = filtered.reduce((sum, item) => sum + (item.costUSD || 0), 0);
     const totalPages = filtered.reduce((sum, item) => sum + (item.pagesProcessed || 0), 0);
-    const successCount = filtered.filter(item => item.success).length;
-    const successRate = totalFiles > 0 ? Math.round((successCount / totalFiles) * 100) : 0;
+
+    // Tỉ lệ thành công chỉ tính những lần chạy đến cùng. Người dùng bấm Huỷ là
+    // lựa chọn của họ, không phải lỗi, mà trước đây vẫn bị kéo tụt tỉ lệ. Bản
+    // ghi 'retry' là phần bù của một lần chạy, không phải một lần chạy riêng.
+    const finishedRuns = filtered.filter(item => {
+      const st = item.status || (item.success === false ? 'cancelled' : 'completed');
+      return st !== 'cancelled' && st !== 'interrupted' && st !== 'retry';
+    });
+    const successCount = finishedRuns.filter(item =>
+      (item.status || 'completed') === 'completed' && item.success !== false).length;
+    const successRate = finishedRuns.length > 0
+      ? Math.round((successCount / finishedRuns.length) * 100) : 0;
     
     // Update Summary DOM Cards
     setText('dash-total-files', totalFiles);
+    setText('dash-total-runs', totalRuns);
     setText('dash-total-pages', totalPages);
     setText('dash-total-tokens', totalTokens.toLocaleString('vi-VN'));
     setText('dash-total-cost', `$${totalCost.toFixed(4)}`);
@@ -514,7 +538,7 @@ window.DashboardUI = (() => {
         .map(([lang, count]) => `
           <tr style="border-bottom: 1px solid var(--border);">
             <td style="padding: 10px 8px; font-weight: 500; color: var(--text-primary);">${UIManager.escapeHtml(lang)}</td>
-            <td style="padding: 10px 8px;">${count} tài liệu</td>
+            <td style="padding: 10px 8px;">${count} lần dịch</td>
           </tr>
         `).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px; color: var(--text-secondary);">Chưa có dữ liệu</td></tr>';
     }

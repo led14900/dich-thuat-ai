@@ -115,6 +115,7 @@ contextBridge.exposeInMainWorld('api', {
     append: (runId, record) => ipcRenderer.invoke('checkpoint:append', { runId, record }),
     read: (runId) => ipcRenderer.invoke('checkpoint:read', runId),
     list: () => ipcRenderer.invoke('checkpoint:list'),
+    prune: (days) => ipcRenderer.invoke('checkpoint:prune', days),
     clear: (runId) => ipcRenderer.invoke('checkpoint:clear', runId),
     saveMeta: (runId, meta) => ipcRenderer.invoke('checkpoint:saveMeta', { runId, meta }),
     findForFile: (filePath) => ipcRenderer.invoke('checkpoint:findForFile', filePath)

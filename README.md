@@ -62,6 +62,15 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 
 ## 📋 Changelog
 
+### v1.2.10 — Điều chỉnh thống kê (2026-09-20)
+- ✨ "Tổng tài liệu" đếm theo file, dịch lại cùng một file vẫn là một tài liệu. Thêm thẻ "Số lần dịch".
+- 🐛 "Chạy tiếp" không còn cộng trùng số trang đã dịch.
+- 🐛 Bấm "Thử lại" nay được tính vào token, chi phí và số trang.
+- 🐛 Lần dịch có trang lỗi không còn hiện là hoàn tất; Lịch sử ghi rõ Xong một phần / Đã huỷ / Gián đoạn.
+- 🐛 Bấm Huỷ không còn làm tụt tỉ lệ thành công.
+- 🐛 Lịch sử và thống kê không mất khi máy tắt đột ngột lúc đang ghi.
+- 🐛 Lần dịch bỏ dở quá 7 ngày được đưa vào Lịch sử trước khi dọn.
+
 ### v1.2.9 — Chạy được tài liệu hàng nghìn trang (2026-09-20)
 - 🐛 Sửa lỗi treo khi dịch tài liệu lớn: trang không nhận được phản hồi nay tự bỏ qua sau ít phút và tính là lỗi, bấm "Thử lại" để chạy lại trang đó.
 - ⚡ Giảm mạnh bộ nhớ khi dịch: tài liệu hàng nghìn trang không còn làm máy ì.

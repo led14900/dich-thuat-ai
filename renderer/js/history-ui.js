@@ -2,6 +2,28 @@ class HistoryUI {
   static currentHistoryPage = 1;
   static pageSize = 10;
 
+  /**
+   * Nhãn trạng thái của một lần dịch.
+   *
+   * Bốn trường hợp khác nhau hẳn về ý nghĩa: xong hết, xong một phần vì vài
+   * trang lỗi, người dùng bấm Huỷ, và app bị tắt giữa chừng. Gộp hết vào một
+   * nhãn "Chưa hoàn tất" thì người dùng không biết có nên chạy tiếp hay không.
+   * Bản ghi cũ chỉ có `success` nên suy ra từ đó.
+   */
+  static statusBadge(item) {
+    const status = item.status || (item.success === false ? 'cancelled' : 'completed');
+    const styles = {
+      partial: ['var(--warning)', 'Xong một phần'],
+      cancelled: ['var(--danger)', 'Đã huỷ'],
+      interrupted: ['var(--danger)', 'Gián đoạn'],
+    };
+    const found = styles[status];
+    if (!found) return '';
+    const [color, label] = found;
+    return `
+              <span style="margin-left:6px; font-size:11px; font-weight:500; color:${color}; border:1px solid ${color}; border-radius:3px; padding:1px 5px;">${label}</span>`;
+  }
+
   static async init() {
     // Add "History" button to nav if not exists
     let navContainer = document.querySelector('.nav-section');
@@ -126,12 +148,13 @@ class HistoryUI {
         const escapedInputType = escapeHtml(item.inputType ? item.inputType.toUpperCase() : 'PDF');
         const escapedTargetLang = escapeHtml(item.targetLang || 'Tiếng Việt');
 
+        const badge = HistoryUI.statusBadge(item);
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>
             <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">
-              ${escapedFilename}${item.success === false ? `
-              <span style="margin-left:6px; font-size:11px; font-weight:500; color:var(--danger); border:1px solid var(--danger); border-radius:3px; padding:1px 5px;">Chưa hoàn tất</span>` : ''}
+              ${escapedFilename}${badge}
             </div>
             <div style="font-size: 11px; color: var(--text-secondary);">${date}</div>
           </td>

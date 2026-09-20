@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme, protocol,
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { documentKeyFor } = require('./lib/atomic-json-store');
 
 // Dark theme for system
 nativeTheme.themeSource = 'dark';
@@ -82,8 +83,9 @@ app.whenReady().then(() => {
 
   const RunCheckpointManager = require('./lib/run-checkpoint-manager');
   checkpointManager = new RunCheckpointManager(app.getPath('userData'));
-  // Runs abandoned long ago are never resumed — do not let them accumulate.
-  checkpointManager.pruneOlderThan(7);
+  // Khong don o day nua: don truoc khi renderer kip khoi phuc thi mot lan dich
+  // bo quen 8 ngay bi xoa ma chua he xuat hien trong Lich su. Renderer goi
+  // 'checkpoint:prune' sau khi khoi phuc xong.
 
   // ── Register 'localfile:' custom protocol to serve local ESM modules (pdfjs) ──
   // This replaces webSecurity:false which was needed for file:// dynamic imports.
@@ -449,7 +451,15 @@ ipcMain.handle('ai:listModels', async (event, { provider }) => {
 ipcMain.handle('history:getAll', (event, { page, pageSize } = {}) => historyManager.getAll(page, pageSize));
 ipcMain.handle('history:add', async (event, item) => {
   const id = await historyManager.addEntry(item);
-  await statsManager.addRecord(item);
+
+  // Lich su giu anh chup tong (nguoi dung thay "10/10 trang"), con thong ke
+  // phai giu so gia tang cua rieng phien nay, khong thi "Chay tiep" cong lai
+  // ca trang cua lan truoc.
+  await statsManager.addRecord({
+    ...item,
+    documentKey: documentKeyFor(item.inputFile),
+    pagesProcessed: item.pagesDelta ?? item.pagesProcessed,
+  });
   return id;
 });
 ipcMain.handle('history:updateOutputPath', (event, { id, outputPath }) => historyManager.updateOutputPath(id, outputPath));
@@ -476,6 +486,7 @@ ipcMain.handle('history:clear', async () => {
 ipcMain.handle('checkpoint:append', (event, { runId, record }) => checkpointManager.append(runId, record));
 ipcMain.handle('checkpoint:read', (event, runId) => checkpointManager.read(runId));
 ipcMain.handle('checkpoint:list', () => checkpointManager.list());
+ipcMain.handle('checkpoint:prune', (event, days) => checkpointManager.pruneOlderThan(days || 7));
 ipcMain.handle('checkpoint:clear', (event, runId) => checkpointManager.clear(runId));
 ipcMain.handle('checkpoint:saveMeta', (event, { runId, meta }) => checkpointManager.saveMeta(runId, meta));
 ipcMain.handle('checkpoint:findForFile', (event, filePath) => checkpointManager.findForFile(filePath));
@@ -484,7 +495,10 @@ ipcMain.handle('stats:getAll', () => statsManager.getAll());
 ipcMain.handle('stats:deleteOlderThan', (event, days) => statsManager.deleteOlderThan(days));
 ipcMain.handle('stats:clearAll', () => statsManager.clearAll());
 ipcMain.handle('stats:add', async (event, record) => {
-  await statsManager.addRecord(record);
+  await statsManager.addRecord({
+    ...record,
+    documentKey: record.documentKey || documentKeyFor(record.inputFile),
+  });
 });
 
 // PDF Processing (delegated to renderer via IPC — heavy lifting in renderer using pdfjs)
