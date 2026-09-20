@@ -1,19 +1,19 @@
-# AI Translate v1.2.8
+# AI Translate v1.2.9
 
 AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform, Gemini API (Google AI Studio) và mọi endpoint OpenAI Compatible. Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: **giữ nguyên cấu trúc văn bản** (heading, bảng biểu, danh sách), tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
 
 ## 🚀 Tải bản mới nhất
-Bản ổn định hiện tại: **v1.2.8**
+Bản ổn định hiện tại: **v1.2.9**
 
 📥 Tải trực tiếp:
-- Bản portable không cần cài đặt: [Download AI Translate 1.2.8.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.8/AI.Translate.1.2.8.exe)
-- Bản cài đặt Setup: [Download AI Translate Setup 1.2.8.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.8/AI.Translate.Setup.1.2.8.exe)
+- Bản portable không cần cài đặt: [Download AI Translate 1.2.9.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.9/AI.Translate.1.2.9.exe)
+- Bản cài đặt Setup: [Download AI Translate Setup 1.2.9.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.9/AI.Translate.Setup.1.2.9.exe)
 
 Hoặc vào trang Releases:
 [https://github.com/led14900/dich-thuat-ai/releases/latest](https://github.com/led14900/dich-thuat-ai/releases/latest)
 
 ## ⚙️ Cách chạy
-1. Tải `AI Translate 1.2.8.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.8.exe` nếu muốn cài đặt.
+1. Tải `AI Translate 1.2.9.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.9.exe` nếu muốn cài đặt.
 2. 🖱️ Chạy trực tiếp file đã tải.
 3. ⚠️ Lưu ý: Do ứng dụng chưa được đăng ký chứng chỉ số trả phí (chưa sign publisher), Windows Defender SmartScreen có thể hiện cảnh báo bảo mật khi mở lần đầu. Bạn chỉ cần chọn **More info → Run anyway** để sử dụng bình thường.
 
@@ -61,6 +61,32 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 - 📊 **Dashboard thống kê:** Biểu đồ chi phí và token tiêu thụ theo ngày/tháng/năm, phân tích theo model và ngôn ngữ đích.
 
 ## 📋 Changelog
+
+### v1.2.9 — Chạy được tài liệu hàng nghìn trang (2026-09-20)
+
+Bản 1.2.8 chạy tốt với vài trang đến khoảng 100 trang, nhưng dự án 2500
+trang thì bị treo. Bản này tìm và sửa từng nguyên nhân một.
+
+**Nguyên nhân chính khiến app đứng im**
+- 🐛 **Request treo vô hạn:** `fetch()` không bao giờ tự bỏ cuộc. Một proxy nhận kết nối rồi im lặng, hoặc một luồng SSE thiếu dấu kết thúc, sẽ làm app chờ mãi — trang đó giữ một luồng xử lý vĩnh viễn, và đủ vài trang như vậy là cả lần dịch không bao giờ kết thúc. Với 100 trang thì hiếm gặp; với 2500 trang là khoảng 5000 request nên gần như chắc chắn xảy ra. Nay có đồng hồ canh: 90 giây chờ máy chủ trả lời, 120 giây im lặng giữa luồng (hẹn lại sau mỗi mẩu dữ liệu, nên stream chậm mà đều vẫn chạy bình thường). Trang quá hạn được ghi là lỗi để lần dịch đi tiếp, bấm "Thử lại" là xong.
+
+**Bộ nhớ**
+- ⚡ **Render ảnh thẳng ở kích thước cần:** trước đây trang được vẽ ở 300–600 DPI rồi mới thu nhỏ còn 2000px. Ảnh gửi đi vẫn y hệt, nhưng ảnh trung gian thì khổng lồ — A4 ở 600 DPI là 132,7 MB, nay còn 10,8 MB. Với 5 trang chạy song song: gần 700 MB xuống còn khoảng 54 MB.
+- ⚡ **PDF.js trả lại tài nguyên:** mỗi trang vẽ xong nay được giải phóng font, ảnh và dữ liệu vẽ. Mở file thứ hai nay đóng hẳn file thứ nhất thay vì để nó nằm lại tới khi tắt app. Ảnh thu nhỏ trong danh sách trang giới hạn 80 cái thay vì giữ cả 2500.
+- ⚡ **Dùng lại provider:** trước đây mỗi lần OCR và mỗi lần dịch đều dựng mới. Riêng Vertex AI thì mỗi lần dựng mới là một lượt xin token, tức khoảng 5000 lượt cho tài liệu 2500 trang.
+
+**Không mất công đã làm**
+- 🐛 **Giữ checkpoint tới khi thật sự an toàn:** trước đây checkpoint bị xoá ngay khi dịch xong, trước lúc lưu vào lịch sử. App sập đúng khoảnh khắc đó là mất trắng 2500 trang vừa trả tiền API. Nay chỉ xoá sau khi lưu xong; lưu hỏng thì giữ lại để còn "Chạy tiếp".
+- 🐛 **Đếm đúng số trang khi huỷ:** màn hình huỷ đếm bằng cách quét thẻ trên giao diện, mà thẻ cũ nay bị thu hồi để giữ giao diện nhẹ — nên tài liệu nhiều trang báo thiếu rất nhiều. Nay đếm bằng con số thật.
+
+**Trải nghiệm**
+- 🐛 **Tạm dừng nay dừng thật:** bấm Tạm dừng trong lúc app đang chờ giữa hai request thì trang tiếp theo vẫn bị gửi đi — nhìn như đã dừng mà vẫn tốn tiền API.
+- 🐛 **Thời gian còn lại đúng hơn:** trước đây không chia cho số trang chạy song song nên báo dài gấp hai, gấp ba sự thật.
+- ⚡ **Giao diện không chậm dần:** phép tính thời gian còn lại quét lại toàn bộ lịch sử sau mỗi trang; hàm chờ để sót hàng nghìn bộ lắng nghe trong một lần chạy dài.
+
+**Bên trong**
+- 🐛 **Đo đúng dung lượng ảnh:** giới hạn được ghi là "sau khi mã hoá" nhưng lại so với dung lượng thô. Mã hoá base64 cộng thêm đúng 1/3, nên trần 4 MB thực ra cho qua tới 5,33 MB — vượt chính ngưỡng nó sinh ra để chặn.
+- 🧹 **Dọn code:** gom 4 khối bị chép hai bản (nguy hiểm nhất là đoạn ghép file kết quả, sửa một bản quên bản kia là file xuất và bản thử lại lệch nhau), xoá 173 dòng không nơi nào dùng đến.
 
 ### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
 - ✨ **Nhà cung cấp mới — OpenAI Compatible:** Thêm lựa chọn nhà cung cấp thứ ba, dùng được với mọi endpoint nói chuẩn `/v1/chat/completions`: AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, cùng các server local như Ollama / LM Studio / vLLM / LiteLLM.
