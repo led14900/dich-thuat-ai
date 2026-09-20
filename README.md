@@ -63,49 +63,37 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 ## 📋 Changelog
 
 ### v1.2.9 — Chạy được tài liệu hàng nghìn trang (2026-09-20)
-- 🐛 **Sửa lỗi treo khi dịch tài liệu lớn:** `fetch()` không có thời gian chờ, nên một proxy nhận kết nối rồi im lặng, hoặc một luồng SSE thiếu dấu kết thúc, sẽ làm trang đó chờ mãi và cả lần dịch không bao giờ xong. Với 100 trang thì hiếm gặp; với 2500 trang là khoảng 5000 request nên gần như chắc chắn xảy ra. Nay đặt hạn 90 giây chờ máy chủ trả lời và 120 giây không nhận được dữ liệu (tính lại sau mỗi lần nhận, nên stream chậm mà đều vẫn chạy bình thường). Trang quá hạn tính là lỗi để lần dịch đi tiếp, bấm "Thử lại" để chạy lại.
-- ⚡ **Render ảnh đúng kích thước cần gửi:** trước đây trang được render ở 300–600 DPI rồi mới thu nhỏ còn 2000px. Ảnh gửi đi không đổi nhưng canvas trung gian rất lớn: A4 ở 600 DPI là 132,7 MB, nay còn 10,8 MB. Với 5 trang chạy song song: khoảng 700 MB xuống còn khoảng 54 MB.
-- ⚡ **PDF.js giải phóng tài nguyên:** gọi `page.cleanup()` sau mỗi lần render, đóng hẳn file cũ khi mở file mới, và giới hạn cache ảnh thu nhỏ ở 80 trang thay vì giữ cả 2500.
-- ⚡ **Dùng lại provider thay vì dựng mới mỗi request:** riêng Vertex AI, mỗi lần dựng mới là một lượt xin OAuth token, tức khoảng 5000 lượt cho tài liệu 2500 trang, đủ để dính rate limit.
-- 🐛 **Không mất tiến độ khi lưu lịch sử hỏng:** checkpoint trước đây bị xóa ngay khi dịch xong, trước lúc lưu lịch sử. App tắt đúng lúc đó là mất toàn bộ kết quả đã gọi API. Nay chỉ xóa sau khi lưu xong, lưu hỏng thì giữ lại để còn "Chạy tiếp".
-- 🐛 **Tạm dừng có hiệu lực ngay:** bấm Tạm dừng trong lúc đang chờ giữa hai request thì trang tiếp theo vẫn được gửi đi. Nay kiểm tra lại trạng thái sau khi hết thời gian chờ.
-- 🐛 **Thời gian còn lại tính đúng:** trước đây không chia cho số trang chạy song song nên báo dài gấp hai đến gấp ba.
-- 🐛 **Đếm đúng số trang đã dịch khi hủy:** màn hình hủy đếm bằng cách quét thẻ trên giao diện, nhưng thẻ cũ đã bị thu hồi để giữ DOM nhỏ, nên tài liệu nhiều trang báo thiếu.
-- ⚡ **Giao diện không chậm dần trong lần chạy dài:** bỏ phép tính thời gian còn lại quét lại toàn bộ lịch sử sau mỗi trang, và gỡ listener bị sót trong hàm chờ.
-- 🐛 **Đo đúng dung lượng ảnh sau mã hóa:** giới hạn ghi là "sau khi mã hóa" nhưng lại so với byte thô. Base64 cộng thêm 1/3, nên trần 4 MB thực tế cho qua tới 5,33 MB.
-- 🧹 **Dọn code:** gom 4 khối bị lặp hai bản, xóa 173 dòng không nơi nào dùng đến.
+- 🐛 Sửa lỗi treo khi dịch tài liệu lớn: trang không nhận được phản hồi nay tự bỏ qua sau ít phút và tính là lỗi, bấm "Thử lại" để chạy lại trang đó.
+- ⚡ Giảm mạnh bộ nhớ khi dịch: tài liệu hàng nghìn trang không còn làm máy ì.
+- 🐛 Không mất tiến độ nếu app tắt ngay sau khi dịch xong: kết quả được giữ lại để "Chạy tiếp".
+- 🐛 Tạm dừng có hiệu lực ngay, không gửi thêm trang nào nữa.
+- 🐛 Thời gian còn lại hiển thị đúng hơn.
+- 🐛 Đếm đúng số trang đã dịch khi bấm Hủy.
+- ⚡ Giao diện không chậm dần trong lần chạy dài.
 
 ### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
-- ✨ **Nhà cung cấp mới — OpenAI Compatible:** Thêm lựa chọn nhà cung cấp thứ ba, dùng được với mọi endpoint nói chuẩn `/v1/chat/completions`: AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, cùng các server local như Ollama / LM Studio / vLLM / LiteLLM.
-- ⚙️ **Cấu hình linh hoạt:** Base URL (có preset chọn nhanh, tự cắt đuôi `/chat/completions` nếu dán nhầm), API Key gửi qua header `Authorization: Bearer` (để trống được với server local), và đơn giá input/output để ước tính chi phí.
-- 🔌 **Tự động tương thích:** Tải danh sách model qua `GET /models`; server không hỗ trợ thì vẫn cho tự nhập Model ID. Nếu endpoint từ chối các tham số tùy chọn (`temperature`, `max_tokens`, `stream_options`, `top_p`), app tự động thử lại sau khi lược bỏ thay vì báo lỗi.
-- 🐛 **Sửa lỗi trích xuất PDF ra trống (không báo lỗi):** Bộ đọc SSE trước đây chỉ xử lý dữ liệu khi gặp **dòng trống ngăn cách** giữa các event. Gemini luôn gửi dòng trống nên không lộ, nhưng nhiều gateway OpenAI-compatible gửi các dòng `data:` liền nhau — app dồn hết thành một chuỗi, `JSON.parse` thất bại và lỗi bị nuốt trong `catch` rỗng, khiến trang trả về **rỗng mà không báo lỗi**. Nay payload được flush ngay khi đã là JSON hoàn chỉnh. Đồng thời thêm nhánh xử lý cho server phớt lờ `stream: true` và trả JSON thường (cũng gây ra trống y hệt).
-- 🐛 **Sửa lỗi OCR file PDF ra trống:** Mỗi trang A4 render ở 300 DPI là 2480x3508 (8.7 MP) — PNG khoảng 7.9 MB, sau khi mã hóa base64 vào body JSON thành **~10.5 MB mỗi trang**. Gemini nhận ảnh inline tới 20 MB nên không lộ, còn phần lớn gateway OpenAI-compatible từ chối hoặc trả HTTP 200 với nội dung rỗng — nhìn y hệt như model không đọc được ảnh. Nay ảnh được thu nhỏ còn tối đa 2000px cạnh dài và nén JPEG trước khi gửi (đo thực tế: 7.89 MB → 1.01 MB, giảm 7.8 lần, tốn ~0.7 giây/trang). Các API vision đều tự hạ ảnh về khoảng 2000px nên độ chính xác OCR không đổi.
-- 🧹 **Bỏ tùy chọn "model hỗ trợ vision":** OCR luôn bật, không cần tích chọn trong app nữa.
-- 🐛 **Luôn gửi `max_tokens` như Gemini:** Gemini luôn gửi `maxOutputTokens: 65535`, còn nhánh OpenAI Compatible chỉ gửi `max_tokens` khi người dùng tự nhập — mà giao diện không có ô nhập, nên tham số luôn bị bỏ qua và endpoint áp mặc định của nó (nhiều gateway để 1024). Nay luôn gửi **65535 token** đúng như Gemini.
-- 🐛 **Đọc `finish_reason` — biết được vì sao trang bị dừng:** App trước đây không đọc trường này, nên trang bị cắt vẫn được ghi vào kết quả như thể hoàn chỉnh, không dấu hiệu gì. Nay `finish_reason` được đọc ở cả hai dialect (Gemini lẫn OpenAI) và cả hai luồng (SSE lẫn JSON đệm).
-- 🐛 **Bị chặn giữa chừng không còn làm mất phần đã dịch được:** Khi endpoint trả `content_filter` (bộ lọc an toàn chặn) hoặc `length` (chạm giới hạn token) sau khi đã sinh được một phần nội dung, app **giữ lại phần đó** và chèn cảnh báo `⚠️ Trang này có thể thiếu nội dung` ngay trong kết quả markdown, kèm lý do và gợi ý bấm "Thử lại". Chỉ khi không còn nội dung nào mới báo lỗi. Việc xét `finish_reason` cũng được đưa lên **trước** bước xét rỗng — nếu không, `content_filter` bị báo nhầm thành "model có thể không hỗ trợ ảnh".
-- 🔒 **Bảo mật:** API Key của endpoint tùy chỉnh được mã hóa bằng `safeStorage` như các provider khác.
-- 🔒 **Sửa lỗi XSS (mức cao):** Model ID trả về từ endpoint tùy chỉnh (`GET /models`) trước đây được nhét thẳng vào `innerHTML` ở trang Cài đặt và bảng thống kê Dashboard. Một endpoint độc hại có thể chèn mã chạy trong renderer. Toàn bộ giá trị này giờ được escape qua helper dùng chung `UIManager.escapeHtml`.
-- 🐛 **Không còn xoá trắng model khi lưu:** Bấm "Lưu cài đặt" trước khi Xác thực (lúc dropdown model chưa được tải) trước đây ghi đè model đang dùng thành rỗng, làm hỏng cấu hình đang chạy. Giờ tự động giữ lại model đã lưu của nhà cung cấp đó.
-- 🐛 **Không báo lỗi kết nối sai:** Bước "Kiểm tra kết nối" trước đây gọi thẳng `fetch` nên bỏ qua cơ chế tự lược bỏ tham số — model từ chối `max_tokens` (thường gặp ở model reasoning) bị báo nhầm là sai cấu hình.
-- 🐛 **Thống kê đúng model khi hủy:** Hủy dịch giữa chừng trước đây ghi `model` toàn cục có thể đã lỗi thời, gây gán nhầm chi phí cho nhà cung cấp khác.
-- 🧹 **Tái cấu trúc:** Tách định dạng request/response của từng provider thành hook riêng trong `BaseProvider`; gom logic xác định provider/model đang dùng vào `renderer/js/provider-utils.js`; gộp khối HTML "Bước 1 / Bước 2" bị lặp 3 lần trong trang Cài đặt.
+- ✨ Thêm nhà cung cấp thứ ba — OpenAI Compatible: dùng được với OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, AI Render, và server chạy tại máy như Ollama / LM Studio / vLLM / LiteLLM.
+- ⚙️ Cấu hình gồm Base URL (có sẵn preset), API Key (để trống được với server tại máy), và đơn giá để ước tính chi phí. Tự tải danh sách model, server nào không hỗ trợ thì tự nhập Model ID.
+- 🐛 Sửa lỗi trang trả về trống mà không báo lỗi với một số endpoint.
+- 🐛 Sửa lỗi OCR ra trống: ảnh trang nay được thu nhỏ trước khi gửi, nhẹ hơn khoảng 8 lần mà độ chính xác không đổi.
+- 🐛 Trang bị cắt giữa chừng nay được giữ lại phần đã dịch kèm cảnh báo, thay vì mất trắng hoặc ghi vào kết quả như thể đã xong.
+- 🐛 Không còn xóa trắng model khi bấm Lưu cài đặt trước lúc xác thực.
+- 🧹 Bỏ tùy chọn "model hỗ trợ vision" — OCR luôn bật.
+- 🔒 API Key của endpoint tùy chỉnh được mã hóa như các nhà cung cấp khác; vá một lỗi bảo mật ở trang Cài đặt và Dashboard.
 
 ### v1.2.5 — Sửa lỗi & Tối ưu (2026-06-10)
-- 🐛 **Sửa lỗi trễ kép (BUG-03):** `requestDelaySec` trước đây bị áp dụng 2 lần (trước mỗi trang và trong bước dịch), dẫn đến chờ gấp đôi thời gian cài đặt. Giờ chỉ áp dụng 1 lần giữa các request.
-- 🐛 **Hủy dịch tức thì (BUG-05):** Lệnh `sleep()` trong quá trình chờ giữa các trang giờ nhận biết tín hiệu hủy — bấm Hủy bây giờ thoát ngay lập tức thay vì phải đợi hết thời gian delay (có thể lên tới 60 giây).
-- 🐛 **Sửa lỗi model không đồng bộ (BUG-06):** Khi kiểm tra kết nối AI trước khi dịch và khi lưu lịch sử, ứng dụng giờ dùng model đúng theo nhà cung cấp (Vertex AI / Gemini API) thay vì trường `model` toàn cục có thể đã lỗi thời.
-- 🐛 **Ngăn ghi lịch sử đúp (BUG-02):** Thêm guard check để history.add không được gọi nếu conversion đã bị hủy.
-- 🔒 **Sửa lỗi XSS tiềm ẩn (BUG-04):** `outputPath` trong trang Lịch sử giờ được escape HTML trước khi inject vào DOM.
-- 🧹 **Tối ưu bộ nhớ:** `pageOutputs` giờ được xóa sạch hoàn toàn giữa các lần chạy để tránh memory leak tích lũy.
+- 🐛 Sửa lỗi chờ gấp đôi thời gian delay đã cài đặt.
+- 🐛 Bấm Hủy nay thoát ngay, không phải đợi hết thời gian chờ.
+- 🐛 Ghi đúng model đang dùng vào lịch sử và khi kiểm tra kết nối.
+- 🐛 Không còn ghi trùng bản ghi lịch sử khi đã hủy.
+- 🔒 Vá một lỗi bảo mật ở trang Lịch sử.
+- 🧹 Giảm bộ nhớ tích lũy giữa các lần chạy.
 
 ### v1.2.4 — Bản vá bảo mật (2026-06-10)
-- 🔒 **Bảo mật:** Sửa lỗi XSS tiềm ẩn trong trang Settings — credentials không còn được nhúng trực tiếp vào HTML
-- 🔒 **Bảo mật:** Bật lại `webSecurity` (Same-Origin Policy) cho renderer — thay thế bằng custom protocol an toàn hơn để tải PDF.js
-- 🔒 **Bảo mật:** Tăng cường kiểm tra path traversal — giới hạn truy cập file theo thư mục an toàn
-- 🔒 **Bảo mật (Gemini API):** API Key giờ được gửi qua header `x-goog-api-key` thay vì URL query string — tránh lộ key trong logs/network
-- 🧹 **Dọn dẹp:** Xóa dead code không được dùng trong engine
+- 🔒 Vá các lỗi bảo mật ở trang Cài đặt và phần đọc file PDF.
+- 🔒 Giới hạn quyền truy cập file theo thư mục an toàn.
+- 🔒 Gemini API Key không còn xuất hiện trong URL, tránh lộ qua log mạng.
+- 🧹 Dọn code không dùng đến.
 
 ### v1.2.3
 - Thêm nhà cung cấp Gemini API (Google AI Studio) hỗ trợ bản miễn phí
