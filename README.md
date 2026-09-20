@@ -38,7 +38,7 @@ Dùng được với AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), 
 1. Chọn nhà cung cấp **OpenAI Compatible**.
 2. Nhập **Base URL** — phần gốc của endpoint, thường kết thúc bằng `/v1` (ví dụ `https://api.airender.vn/v1`). Có sẵn danh sách preset để chọn nhanh; dán nhầm cả đuôi `/chat/completions` thì app tự cắt.
 3. Nhập **API Key** (gửi qua header `Authorization: Bearer`). Để trống nếu server local không yêu cầu key.
-4. Bật **"Model hỗ trợ ảnh (vision)"** nếu muốn dịch file PDF — app gửi từng trang dưới dạng ảnh PNG nên model bắt buộc phải nhận ảnh. Model chỉ-văn-bản vẫn dùng được cho chức năng dịch text.
+4. Chọn model **nhận được ảnh (vision)** — app gửi từng trang PDF dưới dạng ảnh, model chỉ đọc văn bản sẽ không dịch được PDF.
 5. (Tùy chọn) Nhập đơn giá **input/output (USD / 1M tokens)** để trang Thống kê ước tính chi phí. Để 0 nếu không cần.
 6. Nhấn **Xác thực** → chọn model → **Kiểm tra & Lưu cài đặt**. Server không hỗ trợ `GET /models` thì chọn **"✍️ Tự nhập Model ID"**.
 7. ⚠️ Endpoint bắt buộc phải hỗ trợ **streaming SSE** (`"stream": true`). Dữ liệu dịch sẽ được gửi tới nhà cung cấp bạn cấu hình — cân nhắc với tài liệu nhạy cảm.
