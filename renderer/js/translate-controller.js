@@ -32,6 +32,8 @@ window.TranslateController = (() => {
   // thu hoi de giu DOM nho, nen dem the se thieu o tai lieu hang nghin trang.
   let successPageCount = 0;
   const pageTimes = [];
+  let pageTimeTotalMs = 0;          // tổng chạy sẵn, tránh reduce() O(n²)
+  let concurrentPagesForETA = 1;    // ETA phải biết có bao nhiêu trang chạy song song
 
   // Track accumulated token usage and cost
   let totalInputTokens = 0;
@@ -478,6 +480,7 @@ window.TranslateController = (() => {
     // Chay tiep: cac trang lan truoc da xong van tinh la thanh cong.
     successPageCount = resumed ? resumed.doneResults.length : 0;
     pageTimes.length = 0;
+    pageTimeTotalMs = 0;
     totalInputTokens = 0;
     totalOutputTokens = 0;
     totalCostUSD = 0;
@@ -551,7 +554,9 @@ window.TranslateController = (() => {
     // vi ca hai deu phai day thanh tien do va ETA giong het nhau.
     const advancePageProgress = (pageStart) => {
       processed++;
-      pageTimes.push(Date.now() - pageStart);
+      const tookMs = Date.now() - pageStart;
+      pageTimes.push(tookMs);
+      pageTimeTotalMs += tookMs;
       peakProgress = Math.max(peakProgress, 0.1 + (processed / total) * 0.8);
       updateProgress(peakProgress, `Trang ${processed}/${total}`);
       updateElapsed();
@@ -639,6 +644,7 @@ window.TranslateController = (() => {
 
       // Respect user setting directly
       let limit = parseInt(settings.concurrentPages) || 2;
+      concurrentPagesForETA = limit;
       console.log('Tiến trình dịch chạy song song tối đa:', limit, 'trang');
 
       const executing = new Set();
@@ -696,10 +702,6 @@ window.TranslateController = (() => {
       lastOutputPath = null;
       currentHistoryId = null;
 
-      // The whole run is aggregated in memory and about to be saved — the
-      // checkpoint has done its job and would otherwise sit there forever.
-      await clearCheckpoint(thisRunId);
-
       const elapsed = Date.now() - startTime;
       const successCount = pageResults.filter(r => !r.error && !r.skipped).length;
       const pct = Math.round((successCount / pageResults.length) * 100);
@@ -726,6 +728,15 @@ window.TranslateController = (() => {
         });
       } catch (err) {
         console.error('Không thể lưu lịch sử:', err);
+      }
+
+      // Chỉ xoá checkpoint SAU khi lịch sử đã lưu xong. Trước đây xoá ngay khi
+      // dịch xong, nên app sập giữa lúc lưu là mất trắng 2500 trang vừa trả
+      // tiền API. Nếu lưu lịch sử hỏng thì giữ checkpoint lại để còn chạy tiếp.
+      if (currentHistoryId) {
+        await clearCheckpoint(thisRunId);
+      } else {
+        console.warn('[checkpoint] giữ lại vì chưa lưu được lịch sử');
       }
 
       updateProgress(1.0, 'Dịch hoàn tất! Đang chuyển sang báo cáo sau 5 giây...');
@@ -999,18 +1010,30 @@ window.TranslateController = (() => {
       el.textContent = '';
       return;
     }
-    const avgMs = pageTimes.reduce((a, b) => a + b, 0) / pageTimes.length;
-    const etaMs = Math.round(avgMs * remaining);
+    // Tổng chạy sẵn thay cho reduce() toàn mảng mỗi trang — reduce là O(n²)
+    // trên cả lần chạy.
+    const avgMs = pageTimeTotalMs / pageTimes.length;
+    // Chia cho số trang chạy song song, nếu không ETA của 2500 trang sẽ dài
+    // gấp đôi/gấp ba sự thật và người dùng tưởng app đứng.
+    const etaMs = Math.round((avgMs * remaining) / Math.max(1, concurrentPagesForETA));
     el.textContent = `Còn ~${UIManager.formatTime(etaMs)}`;
   }
 
   // Abort-aware sleep: resolves immediately if the AbortController fires during the wait
   function sleep(ms) {
-    if (abortController?.signal?.aborted) return Promise.resolve();
+    const signal = abortController?.signal;
+    if (signal?.aborted) return Promise.resolve();
     return new Promise((resolve) => {
-      const timer = setTimeout(resolve, ms);
-      const onAbort = () => { clearTimeout(timer); resolve(); };
-      abortController?.signal?.addEventListener('abort', onAbort, { once: true });
+      // Gỡ listener ở CẢ hai lối ra. Trước đây chỉ { once: true } lo cho lối
+      // abort; lối bình thường để lại listener, nên một lần chạy 2500 trang
+      // tích hàng nghìn listener cùng closure của chúng cho tới khi xong.
+      const done = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', done);
+        resolve();
+      };
+      const timer = setTimeout(done, ms);
+      signal?.addEventListener('abort', done, { once: true });
     });
   }
 
