@@ -52,7 +52,7 @@ class HistoryUI {
 
     document.getElementById('btn-clear-history')?.addEventListener('click', () => {
       this._confirmAndExecute(
-        'Bạn có chắc chắn muốn xóa toàn bộ lịch sử dịch thuật?',
+        'Xóa toàn bộ lịch sử dịch thuật? Thống kê chi phí và phần dịch dang dở của các lần dịch này cũng bị xóa theo.',
         () => {
           this.currentHistoryPage = 1;
           return window.api.history.clear();

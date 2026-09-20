@@ -468,14 +468,22 @@ ipcMain.handle('history:getMarkdown', (event, id) => historyManager.getMarkdown(
 // Xoá mục lịch sử thì xoá luôn checkpoint của lần dịch đó, nếu không phần đã
 // dịch vẫn nằm trên đĩa và app vẫn hỏi "Chạy tiếp" cho thứ người dùng đã xoá.
 ipcMain.handle('history:delete', async (event, id) => {
-  const runId = await historyManager.deleteEntry(id);
-  if (runId) checkpointManager.clear(runId);
+  const entry = await historyManager.deleteEntry(id);
+  if (entry?.runId) checkpointManager.clear(entry.runId);
+  // Xoá nốt phần thống kê, nếu không người dùng xoá mục trong Lịch sử xong mở
+  // Thống kê vẫn thấy y nguyên chi phí của lần dịch đó.
+  if (entry) await statsManager.deleteForHistoryEntries([entry]);
   return true;
 });
 
 ipcMain.handle('history:clear', async () => {
-  const runIds = await historyManager.clearAll();
-  for (const runId of runIds) checkpointManager.clear(runId);
+  const removed = await historyManager.clearAll();
+  for (const entry of removed) {
+    if (entry.runId) checkpointManager.clear(entry.runId);
+  }
+  // Xoá hết lịch sử là xoá hết, kể cả thống kê — kể cả bản ghi cũ không còn
+  // mục lịch sử nào trỏ tới.
+  await statsManager.clearAll();
   return true;
 });
 

@@ -80,7 +80,13 @@ window.DashboardUI = (() => {
           } else {
             const days = parseInt(type, 10);
             const res = await window.api.stats.deleteOlderThan(days);
-            UIManager.toast(`Đã xóa ${res.deletedCount || 0} bản ghi thống kê cũ`, 'success');
+            // Mặc định của ô chọn là "cũ hơn 7 ngày". Dữ liệu mới tinh thì
+            // không có gì để xoá, mà báo "Đã xóa 0 bản ghi" nghe như hỏng.
+            if (res.deletedCount) {
+              UIManager.toast(`Đã xóa ${res.deletedCount} bản ghi thống kê cũ`, 'success');
+            } else {
+              UIManager.toast(`Không có bản ghi nào cũ hơn ${days} ngày. Chọn "Xóa toàn bộ thống kê" nếu muốn xóa hết.`, 'info');
+            }
           }
           closeModal();
           await loadDashboard(); // Reload statistics
