@@ -666,6 +666,13 @@ window.TranslateController = (() => {
           await sleep(requestDelayMs);
         }
 
+        // Bam Tam dung trong luc dang cho delay thi truoc day trang van bi
+        // phong di — nguoi dung thay da dung ma API van bi goi them.
+        while (isPaused && !abortController.signal.aborted) {
+          await sleep(500);
+        }
+        if (abortController.signal.aborted) break;
+
         const taskPromise = Promise.resolve().then(() => processPage(item));
         results.push(taskPromise);
         executing.add(taskPromise);
