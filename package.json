@@ -1,0 +1,73 @@
+{
+  "name": "ai-translate",
+  "version": "1.2.8",
+  "description": "AI Translate - Document translation powered by AI",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --x64",
+    "build:portable": "electron-builder --win portable"
+  },
+  "keywords": [
+    "pdf",
+    "word",
+    "ai",
+    "converter",
+    "electron",
+    "translate"
+  ],
+  "author": "AI Translate",
+  "license": "MIT",
+  "dependencies": {
+    "docx": "^9.6.1",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "electron": "^32.3.3",
+    "electron-builder": "^25.0.0",
+    "png-to-ico": "^3.0.1"
+  },
+  "build": {
+    "appId": "com.aitranslate.app",
+    "productName": "AI Translate",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "lib/**",
+      "node_modules/**"
+    ],
+    "afterPack": "scripts/afterPack.js",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
+      "legalTrademarks": "Copyright 2026 AI Translate"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "vi_VN",
+        "en_US"
+      ]
+    }
+  }
+}

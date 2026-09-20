@@ -11,14 +11,11 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Dev source code (ignored on git but kept locally)
-main.js
-preload.js
-package.json
-package-lock.json
-lib/
-renderer/
-scripts/
-build/
-Frontend/
-renderer_v1.1/
+# Local settings / credentials (never commit)
+.env
+.env.*
+*-settings.json
+service-account*.json
+
+# Release binaries (vượt giới hạn 100MB của GitHub — phát hành qua GitHub Releases)
+*.exe

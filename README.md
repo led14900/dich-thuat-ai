@@ -1,24 +1,24 @@
-# AI Translate v1.2.5
+# AI Translate v1.2.8
 
-AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform và Gemini API (Google AI Studio). Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: **giữ nguyên cấu trúc văn bản** (heading, bảng biểu, danh sách), tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
+AI Translate là ứng dụng desktop cho Windows giúp dịch thuật tự động các tài liệu PDF dựa trên công nghệ AI tiên tiến của Gemini Enterprise Agent Platform, Gemini API (Google AI Studio) và mọi endpoint OpenAI Compatible. Ứng dụng tập trung vào tốc độ và trải nghiệm người dùng: **giữ nguyên cấu trúc văn bản** (heading, bảng biểu, danh sách), tự động lưu lịch sử & thống kê chi phí, và không yêu cầu cài đặt rườm rà.
 
 ## 🚀 Tải bản mới nhất
-Bản ổn định hiện tại: **v1.2.5**
+Bản ổn định hiện tại: **v1.2.8**
 
 📥 Tải trực tiếp:
-- Bản portable không cần cài đặt: [Download AI Translate 1.2.5.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.5/AI.Translate.1.2.5.exe)
-- Bản cài đặt Setup: [Download AI Translate Setup 1.2.5.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.5/AI.Translate.Setup.1.2.5.exe)
+- Bản portable không cần cài đặt: [Download AI Translate 1.2.8.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.8/AI.Translate.1.2.8.exe)
+- Bản cài đặt Setup: [Download AI Translate Setup 1.2.8.exe](https://github.com/led14900/dich-thuat-ai/releases/download/v1.2.8/AI.Translate.Setup.1.2.8.exe)
 
 Hoặc vào trang Releases:
 [https://github.com/led14900/dich-thuat-ai/releases/latest](https://github.com/led14900/dich-thuat-ai/releases/latest)
 
 ## ⚙️ Cách chạy
-1. Tải `AI Translate 1.2.5.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.5.exe` nếu muốn cài đặt.
+1. Tải `AI Translate 1.2.8.exe` nếu muốn dùng bản portable, hoặc `AI Translate Setup 1.2.8.exe` nếu muốn cài đặt.
 2. 🖱️ Chạy trực tiếp file đã tải.
 3. ⚠️ Lưu ý: Do ứng dụng chưa được đăng ký chứng chỉ số trả phí (chưa sign publisher), Windows Defender SmartScreen có thể hiện cảnh báo bảo mật khi mở lần đầu. Bạn chỉ cần chọn **More info → Run anyway** để sử dụng bình thường.
 
 ## 🔑 Hướng dẫn cấu hình API
-Ứng dụng hỗ trợ **2 phương thức xác thực**. Mở ứng dụng → **Cài đặt** → chọn nhà cung cấp AI phù hợp:
+Ứng dụng hỗ trợ **3 phương thức xác thực**. Mở ứng dụng → **Cài đặt** → chọn nhà cung cấp AI phù hợp:
 
 ### Cách 1: Gemini Enterprise Agent Platform (Vertex AI) — Trả phí, không giới hạn
 1. Chọn nhà cung cấp **Vertex AI**.
@@ -32,6 +32,23 @@ Hoặc vào trang Releases:
 3. Nhấn **Xác thực** → chọn model → **Kiểm tra & Lưu cài đặt**.
 4. ⚠️ **Lưu ý bản Free:** Bị giới hạn số lượt gọi/phút (RPM) và lượt/ngày (RPD). Bạn **bắt buộc** phải chỉnh **"Delay giữa các request"** lên **5s–12s** ở phần Xử lý để tránh lỗi quá tải 429. Google có thể dùng dữ liệu dịch để huấn luyện mô hình — tránh dịch tài liệu nhạy cảm.
 
+### Cách 3: OpenAI Compatible — Dùng endpoint bất kỳ theo chuẩn OpenAI
+Dùng được với AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, hoặc server chạy máy local như Ollama / LM Studio / vLLM / LiteLLM.
+
+1. Chọn nhà cung cấp **OpenAI Compatible**.
+2. Nhập **Base URL** — phần gốc của endpoint, thường kết thúc bằng `/v1` (ví dụ `https://api.airender.vn/v1`). Có sẵn danh sách preset để chọn nhanh; dán nhầm cả đuôi `/chat/completions` thì app tự cắt.
+3. Nhập **API Key** (gửi qua header `Authorization: Bearer`). Để trống nếu server local không yêu cầu key.
+4. Bật **"Model hỗ trợ ảnh (vision)"** nếu muốn dịch file PDF — app gửi từng trang dưới dạng ảnh PNG nên model bắt buộc phải nhận ảnh. Model chỉ-văn-bản vẫn dùng được cho chức năng dịch text.
+5. (Tùy chọn) Nhập đơn giá **input/output (USD / 1M tokens)** để trang Thống kê ước tính chi phí. Để 0 nếu không cần.
+6. Nhấn **Xác thực** → chọn model → **Kiểm tra & Lưu cài đặt**. Server không hỗ trợ `GET /models` thì chọn **"✍️ Tự nhập Model ID"**.
+7. ⚠️ Endpoint bắt buộc phải hỗ trợ **streaming SSE** (`"stream": true`). Dữ liệu dịch sẽ được gửi tới nhà cung cấp bạn cấu hình — cân nhắc với tài liệu nhạy cảm.
+
+Ví dụ kiểm tra nhanh endpoint bằng curl trước khi cấu hình trong app:
+
+```bash
+curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_API_KEY" -H "Content-Type: application/json" -d '{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"Xin chào"}]}'
+```
+
 ## ✨ Tính năng chính của AI Translate
 - 📄 **Dịch thuật PDF chuyên nghiệp:** Kéo thả trực tiếp file PDF để tải lên và bắt đầu dịch.
 - 🤖 **Tích hợp AI thông minh:** Phân tích ngữ cảnh, dịch thuật nhanh chóng và **giữ nguyên định dạng văn bản** (heading, bảng biểu, danh sách có thứ tự, in đậm, in nghiêng). Hỗ trợ 17 template prompt chuyên ngành (Y khoa, Pháp lý, Khoa học, Logistics, ...).
@@ -44,6 +61,17 @@ Hoặc vào trang Releases:
 - 📊 **Dashboard thống kê:** Biểu đồ chi phí và token tiêu thụ theo ngày/tháng/năm, phân tích theo model và ngôn ngữ đích.
 
 ## 📋 Changelog
+
+### v1.2.8 — Hỗ trợ endpoint OpenAI Compatible (2026-09-20)
+- ✨ **Nhà cung cấp mới — OpenAI Compatible:** Thêm lựa chọn nhà cung cấp thứ ba, dùng được với mọi endpoint nói chuẩn `/v1/chat/completions`: AI Render, OpenAI, OpenRouter, Groq, DeepSeek, xAI (Grok), Mistral, Together, cùng các server local như Ollama / LM Studio / vLLM / LiteLLM.
+- ⚙️ **Cấu hình linh hoạt:** Base URL (có preset chọn nhanh, tự cắt đuôi `/chat/completions` nếu dán nhầm), API Key gửi qua header `Authorization: Bearer` (để trống được với server local), cờ hỗ trợ ảnh (vision) và đơn giá input/output để ước tính chi phí.
+- 🔌 **Tự động tương thích:** Tải danh sách model qua `GET /models`; server không hỗ trợ thì vẫn cho tự nhập Model ID. Nếu endpoint từ chối các tham số tùy chọn (`temperature`, `max_tokens`, `stream_options`, `top_p`), app tự động thử lại sau khi lược bỏ thay vì báo lỗi.
+- 🔒 **Bảo mật:** API Key của endpoint tùy chỉnh được mã hóa bằng `safeStorage` như các provider khác.
+- 🔒 **Sửa lỗi XSS (mức cao):** Model ID trả về từ endpoint tùy chỉnh (`GET /models`) trước đây được nhét thẳng vào `innerHTML` ở trang Cài đặt và bảng thống kê Dashboard. Một endpoint độc hại có thể chèn mã chạy trong renderer. Toàn bộ giá trị này giờ được escape qua helper dùng chung `UIManager.escapeHtml`.
+- 🐛 **Không còn xoá trắng model khi lưu:** Bấm "Lưu cài đặt" trước khi Xác thực (lúc dropdown model chưa được tải) trước đây ghi đè model đang dùng thành rỗng, làm hỏng cấu hình đang chạy. Giờ tự động giữ lại model đã lưu của nhà cung cấp đó.
+- 🐛 **Không báo lỗi kết nối sai:** Bước "Kiểm tra kết nối" trước đây gọi thẳng `fetch` nên bỏ qua cơ chế tự lược bỏ tham số — model từ chối `max_tokens` (thường gặp ở model reasoning) bị báo nhầm là sai cấu hình.
+- 🐛 **Thống kê đúng model khi hủy:** Hủy dịch giữa chừng trước đây ghi `model` toàn cục có thể đã lỗi thời, gây gán nhầm chi phí cho nhà cung cấp khác.
+- 🧹 **Tái cấu trúc:** Tách định dạng request/response của từng provider thành hook riêng trong `BaseProvider`; gom logic xác định provider/model đang dùng vào `renderer/js/provider-utils.js`; gộp khối HTML "Bước 1 / Bước 2" bị lặp 3 lần trong trang Cài đặt.
 
 ### v1.2.5 — Sửa lỗi & Tối ưu (2026-06-10)
 - 🐛 **Sửa lỗi trễ kép (BUG-03):** `requestDelaySec` trước đây bị áp dụng 2 lần (trước mỗi trang và trong bước dịch), dẫn đến chờ gấp đôi thời gian cài đặt. Giờ chỉ áp dụng 1 lần giữa các request.
