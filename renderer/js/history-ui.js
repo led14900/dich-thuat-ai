@@ -129,7 +129,10 @@ class HistoryUI {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>
-            <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">${escapedFilename}</div>
+            <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">
+              ${escapedFilename}${item.success === false ? `
+              <span style="margin-left:6px; font-size:11px; font-weight:500; color:var(--danger); border:1px solid var(--danger); border-radius:3px; padding:1px 5px;">Chưa hoàn tất</span>` : ''}
+            </div>
             <div style="font-size: 11px; color: var(--text-secondary);">${date}</div>
           </td>
           <td>${escapedInputType}</td>

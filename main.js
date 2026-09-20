@@ -455,8 +455,19 @@ ipcMain.handle('history:add', async (event, item) => {
 ipcMain.handle('history:updateOutputPath', (event, { id, outputPath }) => historyManager.updateOutputPath(id, outputPath));
 ipcMain.handle('history:updateEntry', (event, { id, fields }) => historyManager.updateEntry(id, fields));
 ipcMain.handle('history:getMarkdown', (event, id) => historyManager.getMarkdown(id));
-ipcMain.handle('history:delete', (event, id) => historyManager.deleteEntry(id));
-ipcMain.handle('history:clear', () => historyManager.clearAll());
+// Xoá mục lịch sử thì xoá luôn checkpoint của lần dịch đó, nếu không phần đã
+// dịch vẫn nằm trên đĩa và app vẫn hỏi "Chạy tiếp" cho thứ người dùng đã xoá.
+ipcMain.handle('history:delete', async (event, id) => {
+  const runId = await historyManager.deleteEntry(id);
+  if (runId) checkpointManager.clear(runId);
+  return true;
+});
+
+ipcMain.handle('history:clear', async () => {
+  const runIds = await historyManager.clearAll();
+  for (const runId of runIds) checkpointManager.clear(runId);
+  return true;
+});
 
 // Stats
 // ── Run checkpoints ──────────────────────────────────────────────
@@ -464,6 +475,7 @@ ipcMain.handle('history:clear', () => historyManager.clearAll());
 // of 2500 does not throw away the whole run.
 ipcMain.handle('checkpoint:append', (event, { runId, record }) => checkpointManager.append(runId, record));
 ipcMain.handle('checkpoint:read', (event, runId) => checkpointManager.read(runId));
+ipcMain.handle('checkpoint:list', () => checkpointManager.list());
 ipcMain.handle('checkpoint:clear', (event, runId) => checkpointManager.clear(runId));
 ipcMain.handle('checkpoint:saveMeta', (event, { runId, meta }) => checkpointManager.saveMeta(runId, meta));
 ipcMain.handle('checkpoint:findForFile', (event, filePath) => checkpointManager.findForFile(filePath));

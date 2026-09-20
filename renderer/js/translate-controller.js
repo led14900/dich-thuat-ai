@@ -151,6 +151,66 @@ window.TranslateController = (() => {
     } catch { /* leaving a stale checkpoint behind is harmless; pruned after 7 days */ }
   }
 
+  /**
+   * Ghi vào Lịch sử những lần dịch bị đứt vì app tắt giữa chừng.
+   *
+   * Huỷ bằng nút Huỷ thì ghi ngay tại chỗ, nhưng app bị tắt (đóng cửa sổ, mất
+   * điện, treo máy) thì không có cơ hội đó — phần đã dịch chỉ nằm trong
+   * checkpoint và người dùng không thấy ở đâu cả. Chạy lúc mở app: mỗi
+   * checkpoint chưa ghi sẽ thành một mục "chưa hoàn tất".
+   *
+   * Checkpoint vẫn giữ nguyên để "Chạy tiếp" dùng tiếp, và được đánh dấu để
+   * lần mở sau không ghi trùng.
+   */
+  async function recoverUnfinishedRuns() {
+    if (!window.api?.checkpoint?.list) return;
+
+    let runs = [];
+    try {
+      runs = await window.api.checkpoint.list();
+    } catch {
+      return;
+    }
+
+    for (const run of runs) {
+      const meta = run.meta;
+      if (!meta || meta.historySavedAt) continue;
+
+      try {
+        const pages = await loadCheckpoint(run.runId);
+        if (!pages.length) continue;
+        pages.sort((a, b) => a.page - b.page);
+
+        const markdown = buildFullMarkdown(pages);
+        if (!markdown) continue;
+
+        const done = pages.filter(p => !p.error && !p.skipped).length;
+
+        await window.api.history.add({
+          inputFile: meta.filePath || '',
+          inputType: (meta.filePath || '').split('.').pop().toLowerCase() || 'pdf',
+          pageCount: meta.totalPages || pages.length,
+          pagesProcessed: done,
+          sourceLang: meta.sourceLang || 'auto',
+          targetLang: meta.targetLang || '',
+          translateMode: meta.translateMode || 'bilingual',
+          model: meta.model || '',
+          totalTokens: 0,
+          costUSD: 0,
+          elapsedMs: 0,
+          outputPath: '',
+          success: false,
+          runId: run.runId,
+          markdownContent: markdown
+        });
+
+        await window.api.checkpoint.saveMeta(run.runId, { historySavedAt: Date.now() });
+      } catch (err) {
+        console.error('Không khôi phục được lần dịch dang dở:', err);
+      }
+    }
+  }
+
   // ── Progress cards ──────────────────────────────────────────────
   //
   // Each card is ~8 DOM nodes and used to carry 3 event listeners of its own,
@@ -570,6 +630,16 @@ window.TranslateController = (() => {
         filePath,
         totalPages: selectedPages.length,
         startedAt: Date.now(),
+        // Lưu kèm cấu hình đang dùng để nếu app bị tắt giữa chừng, lần mở sau
+        // vẫn ghi đúng ngôn ngữ và model vào Lịch sử thay vì đoán theo cài đặt
+        // hiện tại (có thể đã đổi).
+        sourceLang: settings.sourceLanguage || 'auto',
+        targetLang: settings.translateLanguage,
+        translateMode: settings.translateMode || 'bilingual',
+        model: ProviderUtils.resolveProviderModel(settings),
+        // Chạy tiếp sinh thêm trang mới, nên lần dịch này lại cần được ghi
+        // vào Lịch sử nếu bị đứt.
+        historySavedAt: null,
       }).catch(() => { /* metadata is a convenience, never fail the run over it */ });
     }
 
@@ -731,6 +801,7 @@ window.TranslateController = (() => {
           elapsedMs: elapsed,
           outputPath: '',
           success: true,
+          runId: thisRunId,
           markdownContent: lastFullMarkdown
         });
       } catch (err) {
@@ -1061,11 +1132,51 @@ window.TranslateController = (() => {
       const total = (selected && selected.length) ? selected.length : 1;
       
       const successCount = successPageCount;
+      const settings = await window.api.settings.load();
 
-      // Record token usage and cost spent so far into stats database
-      if (totalInputTokens + totalOutputTokens > 0) {
+      // Ghi lần dịch dang dở vào Lịch sử. Trước đây huỷ giữa chừng là không có
+      // dấu vết nào trong Lịch sử: phần đã dịch nằm trong checkpoint nên không
+      // mất, nhưng người dùng không nhìn thấy và không xuất file được.
+      const savedPages = await loadCheckpoint(currentRunId);
+      savedPages.sort((a, b) => a.page - b.page);
+      const hasPartialResult = savedPages.length > 0;
+
+      if (hasPartialResult) {
+        currentPageResults = savedPages;
+        lastFullMarkdown = buildFullMarkdown(savedPages);
+        lastInputPath = PDFRenderer.getCurrentFilePath();
+        lastOutputPath = null;
+
         try {
-          const settings = await window.api.settings.load();
+          currentHistoryId = await window.api.history.add({
+            inputFile: lastInputPath,
+            inputType: (lastInputPath || '').split('.').pop().toLowerCase(),
+            pageCount: total,
+            pagesProcessed: successCount,
+            sourceLang: settings.sourceLanguage || 'auto',
+            targetLang: settings.translateLanguage,
+            translateMode: settings.translateMode || 'bilingual',
+            model: ProviderUtils.resolveProviderModel(settings),
+            totalTokens: totalInputTokens + totalOutputTokens,
+            costUSD: totalCostUSD,
+            elapsedMs: startTime ? (Date.now() - startTime) : 0,
+            outputPath: '',
+            success: false,
+            runId: currentRunId,
+            markdownContent: lastFullMarkdown
+          });
+
+          // Đánh dấu đã ghi, để lần mở app sau không tạo thêm một mục trùng.
+          await window.api.checkpoint.saveMeta(currentRunId, { historySavedAt: Date.now() });
+        } catch (err) {
+          console.error('Không thể lưu lịch sử lần dịch đã huỷ:', err);
+        }
+      }
+
+      // Thống kê: history:add đã cộng token và chi phí vào thống kê rồi, nên
+      // chỉ tự cộng khi không lưu được mục lịch sử nào.
+      if (!currentHistoryId && totalInputTokens + totalOutputTokens > 0) {
+        try {
           await window.api.stats.add({
             pageCount: total,
             pagesProcessed: successCount,
@@ -1119,7 +1230,9 @@ window.TranslateController = (() => {
 
       const completeSubtitle = document.getElementById('complete-subtitle');
       if (completeSubtitle) {
-        completeSubtitle.textContent = 'Đã huỷ tiến trình. Không lưu file hay lịch sử dịch thuật. Số token và chi phí đã sử dụng vẫn được tính vào bảng thống kê.';
+        completeSubtitle.textContent = hasPartialResult
+          ? `Đã huỷ tiến trình. ${successCount} trang dịch xong được lưu vào Lịch sử và đánh dấu chưa hoàn tất — xem lại hoặc xuất file ngay tại đây. Mở lại tài liệu này sẽ có lựa chọn "Chạy tiếp".`
+          : 'Đã huỷ tiến trình. Chưa có trang nào dịch xong nên không lưu gì vào Lịch sử. Số token và chi phí đã sử dụng vẫn được tính vào bảng thống kê.';
       }
 
       const btnSaveDocx = document.getElementById('btn-save-docx');
@@ -1129,10 +1242,12 @@ window.TranslateController = (() => {
       const btnOpenFolder = document.getElementById('btn-open-folder');
       const btnConvertAnother = document.getElementById('btn-convert-another');
 
-      if (btnSaveDocx) btnSaveDocx.style.display = 'none';
+      // Có trang đã dịch xong thì cho xem lại và xuất ngay, khỏi phải vào Lịch sử.
+      const partialDisplay = hasPartialResult ? 'block' : 'none';
+      if (btnSaveDocx) btnSaveDocx.style.display = partialDisplay;
       if (btnOpenDocx) btnOpenDocx.style.display = 'none';
-      if (btnExportMarkdown) btnExportMarkdown.style.display = 'none';
-      if (btnPreviewTranslation) btnPreviewTranslation.style.display = 'none';
+      if (btnExportMarkdown) btnExportMarkdown.style.display = partialDisplay;
+      if (btnPreviewTranslation) btnPreviewTranslation.style.display = partialDisplay;
       if (btnOpenFolder) btnOpenFolder.style.display = 'none';
       if (btnConvertAnother) btnConvertAnother.style.display = 'block';
 
@@ -1173,6 +1288,7 @@ window.TranslateController = (() => {
     cancel,
     togglePause,
     retryPage,
+    recoverUnfinishedRuns,
     saveDocxFile,
     getLastOutputPath: () => lastOutputPath,
     getFullMarkdown: () => lastFullMarkdown,

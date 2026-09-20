@@ -222,6 +222,10 @@ window.App = (() => {
     // Load recent files
     loadRecentFiles();
 
+    // Lần dịch bị đứt vì app tắt giữa chừng: ghi phần đã dịch vào Lịch sử.
+    TranslateController.recoverUnfinishedRuns().catch(err =>
+      console.error('Lỗi khôi phục lần dịch dang dở:', err));
+
     // Update provider badge in sidebar
     await updateProviderBadge();
 
