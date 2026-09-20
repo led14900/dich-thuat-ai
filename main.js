@@ -126,6 +126,7 @@ app.whenReady().then(() => {
   // Register safe system directories for path traversal protection
   registerAllowedPath(app.getPath('userData'));
   registerAllowedPath(app.getPath('temp'));
+  registerRecentFiles();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -195,6 +196,30 @@ function registerAllowedPath(filePath) {
     allowedPaths.add(resolved);
   } catch (err) {
     console.error('Lỗi đăng ký đường dẫn được phép:', err);
+  }
+}
+
+/**
+ * Danh sách đường dẫn được phép chỉ nằm trong bộ nhớ, nên sau khi khởi động
+ * lại app thì file trong "File gần đây" nằm ngoài các thư mục an toàn (ví dụ
+ * D:\tai-lieu.pdf) sẽ bị chặn dù chính người dùng đã chọn nó bằng hộp thoại.
+ *
+ * Nạp lại đúng những file đó khi khởi động. Chỉ nhận file .pdf còn tồn tại,
+ * và đăng ký từng file một chứ không đăng ký thư mục chứa nó.
+ */
+function registerRecentFiles() {
+  try {
+    const recent = settingsManager?.get('recentFiles');
+    if (!Array.isArray(recent)) return;
+
+    for (const filePath of recent.slice(0, 50)) {
+      if (typeof filePath !== 'string') continue;
+      if (path.extname(filePath).toLowerCase() !== '.pdf') continue;
+      if (!fs.existsSync(filePath)) continue;
+      registerAllowedPath(filePath);
+    }
+  } catch (err) {
+    console.error('Lỗi nạp lại file gần đây:', err.message);
   }
 }
 
