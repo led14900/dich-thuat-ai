@@ -171,7 +171,15 @@ window.App = (() => {
     });
     
     document.getElementById('btn-export-markdown')?.addEventListener('click', async () => {
-      const mdContent = TranslateController.getFullMarkdown();
+      const settings = await window.api.settings.load();
+      // Chế độ 2 cột: xuất ra bảng Markdown 2 cột cho khớp với file Word, dán
+      // thẳng vào Excel hay Sheets vẫn ra hai cột.
+      let mdContent;
+      if (settings.translateMode === 'two-column') {
+        mdContent = window.MarkdownTwoColumnExport.build(
+          TranslateController.getPageResults(), settings.translateLanguage);
+      }
+      if (!mdContent) mdContent = TranslateController.getFullMarkdown();
       if (!mdContent) {
         UIManager.toast('Không có nội dung Markdown để xuất', 'error');
         return;
@@ -221,6 +229,9 @@ window.App = (() => {
 
     // Load recent files
     loadRecentFiles();
+
+    // Số hiệu phiên bản ở màn hình Giới thiệu, lấy từ package.json lúc chạy.
+    showAppVersion();
 
     // Lần dịch bị đứt vì app tắt giữa chừng: ghi phần đã dịch vào Lịch sử.
     // Dọn checkpoint cũ phải chạy SAU khi khôi phục, không thì một lần dịch bỏ
@@ -349,6 +360,23 @@ window.App = (() => {
       }
     } else {
       UIManager.toast('Định dạng không được hỗ trợ', 'error');
+    }
+  }
+
+  /**
+   * Hiện số hiệu phiên bản thật của bản đang chạy.
+   *
+   * Hỏng thì để trống hẳn, không ghi số cũ: thà không biết phiên bản còn hơn
+   * tin vào một con số sai khi đi báo lỗi.
+   */
+  async function showAppVersion() {
+    const el = document.getElementById('app-version-badge');
+    if (!el) return;
+    try {
+      const version = await window.api?.app?.getVersion();
+      el.textContent = version ? `Phiên bản ${version}` : '';
+    } catch {
+      el.textContent = '';
     }
   }
 

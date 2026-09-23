@@ -37,6 +37,14 @@ function removeAllListeners(channel) {
 
 // Expose a safe, limited API to the renderer process
 contextBridge.exposeInMainWorld('api', {
+  // Số hiệu phiên bản, lấy thẳng từ package.json.
+  //
+  // Trước đây số này được gõ tay vào index.html nên mỗi lần bump là quên sửa:
+  // bản 1.2.11 vẫn hiện "Phiên bản 1.2.10" trong màn hình Giới thiệu.
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:version'),
+  },
+
   // Window controls
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

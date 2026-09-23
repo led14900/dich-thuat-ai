@@ -244,11 +244,17 @@ class HistoryUI {
         pageSize: settings.pageSize,
         translateLanguage: item.targetLang,
         translateMode: item.translateMode || 'bilingual',
-        bilingual: item.translateMode === 'bilingual'
+        bilingual: item.translateMode !== 'clean'
       };
 
+      // Đánh số theo số trang GỐC đã lưu, không theo thứ tự khối. Bản dịch bỏ
+      // qua trang 2 thì khối thứ hai vẫn là trang gốc 3, và chân trang trong
+      // file Word phải ghi đúng 3 mới đối chiếu được với bản PDF.
+      // Mục lịch sử cũ (trước 1.2.11) không có pageNumbers nên quay về đánh số
+      // tuần tự như trước: không tốt hơn được, nhưng cũng không tệ đi.
+      const savedPageNumbers = Array.isArray(item.pageNumbers) ? item.pageNumbers : null;
       const pages = markdown.split(/\n+---\n+/).map((pageMarkdown, index) => ({
-        page: index + 1,
+        page: savedPageNumbers?.[index] ?? (index + 1),
         markdown: pageMarkdown.trim()
       }));
 

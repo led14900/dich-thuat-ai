@@ -18,6 +18,33 @@ Hoặc vào trang Releases:
 3. ⚠️ Lưu ý: Do ứng dụng chưa được đăng ký chứng chỉ số trả phí (chưa sign publisher), Windows Defender SmartScreen có thể hiện cảnh báo bảo mật khi mở lần đầu. Bạn chỉ cần chọn **More info → Run anyway** để sử dụng bình thường.
 
 ## 🔑 Hướng dẫn cấu hình API
+
+### Lấy API Key của Google AI Studio (miễn phí)
+
+1. Vào [aistudio.google.com/apikey](https://aistudio.google.com/apikey), đăng nhập bằng tài khoản Google.
+2. Bấm **Create API key**. Cứ để Google tự tạo project mới nếu bạn chưa có.
+3. Sao chép key vừa hiện ra — **chỉ hiện đầy đủ một lần**, mất thì phải tạo key khác.
+4. Dán vào **Cài đặt → Gemini API → API Key** trong app.
+
+Không cần thẻ tín dụng. Bù lại bị giới hạn số lượt gọi mỗi phút, nên nhớ chỉnh **Delay giữa các request** lên 5–12 giây.
+
+> ⚠️ Từ tháng 6/2026 Google chặn các key không giới hạn phạm vi. Nếu ở trang key thấy nhãn *unrestricted*, bấm **Restrict to Gemini API** là xong.
+
+### Lấy file JSON của Gemini Enterprise Agent Platform (tên cũ: Vertex AI)
+
+Cách này trả phí theo mức dùng nhưng không bị nghẹt số lượt gọi, hợp với tài liệu dài.
+
+1. Mở [Google Cloud Console](https://console.cloud.google.com/), chọn hoặc tạo một project.
+2. Vào **APIs & Services → Enable APIs and Services**, bật **Vertex AI API**.
+3. Vào **IAM & Admin → Service Accounts → Create service account**, đặt tên bất kỳ.
+4. Cấp cho nó quyền **Vertex AI User** (`roles/aiplatform.user`). Chỉ cần từng đó, đừng cấp Owner.
+5. Mở service account vừa tạo → thẻ **Keys** → **Add key → Create new key** → chọn **JSON** → **Create**. File `.json` sẽ tự tải về máy.
+6. Trong app: **Cài đặt → Vertex AI**, tải lên hoặc dán nội dung file JSON đó. Project ID tự điền, bạn chỉ cần chọn Region.
+
+> 🔒 File JSON này là chìa khoá vào project Google Cloud của bạn. Đừng gửi qua chat, đừng commit lên Git. Lỡ lộ thì vào đúng trang **Keys** ở trên xoá key đó đi.
+
+### Cấu hình trong ứng dụng
+
 Ứng dụng hỗ trợ **3 phương thức xác thực**. Mở ứng dụng → **Cài đặt** → chọn nhà cung cấp AI phù hợp:
 
 ### Cách 1: Gemini Enterprise Agent Platform (Vertex AI) — Trả phí, không giới hạn
@@ -56,11 +83,23 @@ curl https://api.airender.vn/v1/chat/completions -H "Authorization: Bearer YOUR_
 - 💾 **Tự động lưu Lịch sử & Thống kê:** Lưu thông tin dịch thuật (số trang, số token tiêu thụ, chi phí API ước tính) ngay khi quá trình dịch của các trang kết thúc — kể cả khi hủy giữa chừng, chi phí token đã dùng vẫn được tính.
 - ⚡ **Tải chậm & Lưu trữ không giới hạn:** Hỗ trợ lưu trữ danh sách file gần đây trên Trang chủ và Lịch sử dịch thuật không giới hạn số lượng. Tích hợp cơ chế phân trang tải chậm (lazy load) tối ưu từ Main Process giúp truyền tải mượt mà và tiết kiệm RAM tối đa.
 - 📂 **Lưu file & Xem trước linh hoạt:** Màn hình kết quả cho phép Xem trước bản dịch Markdown dạng chỉ đọc, Xuất Markdown (.md), hoặc xuất tài liệu Word (.docx). Sau khi lưu, bạn có thể mở trực tiếp file Word hoặc thư mục chứa file. Lịch sử dịch thuật cũng cho phép tải lại file Word hoặc xem lại bản dịch Markdown bất kỳ lúc nào.
-- ⚙️ **Tùy biến cao:** Cài đặt Font chữ, DPI ảnh OCR, cỡ chữ, khổ giấy khi xuất Word. Chế độ dịch: **Song ngữ xen kẽ** (giữ nguyên văn bản gốc, bản dịch ngay bên dưới in nghiêng màu xanh) hoặc **Bản dịch hoàn hảo** (chỉ bản dịch, không có văn bản gốc).
+- ⚙️ **Tùy biến cao:** Cài đặt Font chữ, DPI ảnh OCR, cỡ chữ, khổ giấy khi xuất Word. Chế độ dịch: **Song ngữ xen kẽ** (bản dịch ngay dưới bản gốc, in nghiêng màu xanh), **Song ngữ 2 cột** (gốc và dịch ngang hàng nhau, copy riêng từng cột được) hoặc **Bản dịch hoàn hảo** (chỉ bản dịch). Mỗi trang gốc là một trang Word riêng, chân trang ghi số trang gốc để đối chiếu.
 - 🎨 **Giao diện hiện đại:** Thiết kế full-width sang trọng, hỗ trợ co giãn responsive tự động (2 cột màn hình rộng / 1 cột khi thu nhỏ), 100% tiếng Việt, rất dễ sử dụng.
 - 📊 **Dashboard thống kê:** Biểu đồ chi phí và token tiêu thụ theo ngày/tháng/năm, phân tích theo model và ngôn ngữ đích.
 
 ## 📋 Changelog
+
+### v1.2.11 — Song ngữ 2 cột và đúng số trang (2026-09-23)
+- ✨ Thêm chế độ **Song ngữ 2 cột**: bản gốc và bản dịch nằm ngang hàng nhau trong bảng không viền, rê chuột dọc một cột là copy riêng được cột đó. Chữ trong bảng tự nhỏ hơn 2pt (sàn 9pt) vì mỗi cột chỉ rộng nửa trang — đỡ gãy dòng, nhất là với tiếng Trung / Nhật / Hàn. Xuất Markdown ở chế độ này ra bảng 2 cột, dán vào Excel / Google Sheets / Notion vẫn giữ 2 cột.
+- ✨ Mỗi trang tài liệu gốc luôn bắt đầu ở một trang Word mới, không viết đè tiếp vào trang trước. Trang 1 dài 1,5 trang thì trang 2 vẫn mở ở trang Word mới.
+- ✨ Chân mỗi trang Word ghi "Trang gốc N • Trang Word X/Y" để đối chiếu với bản gốc.
+- 🐛 Tên biến kiểu `file_name_version` và chỉ số dưới trong công thức `$x_1$` không còn bị bẻ thành chữ nghiêng.
+- 🐛 Ký tự được thoát bằng dấu chéo ngược nay hiện ra đúng ký tự đó, không còn giữ lại dấu chéo.
+- 🐛 Ô bảng có chứa dấu sổ dọc không còn tách thành cột thừa làm lệch cả bảng.
+- 🐛 Ô bảng in đậm / in nghiêng nay hiện đúng định dạng thay vì hiện thô dấu sao.
+- 🐛 Ảnh trong bản dịch được nhận ra và ghi chú lại, không còn lọt nguyên cú pháp Markdown vào file Word.
+- 🐛 Tải lại file Word từ Lịch sử: chân trang ghi đúng số trang gốc kể cả khi bản dịch có trang bị bỏ qua hay trang lỗi.
+- 🐛 Bỏ đường kẻ ngang thừa ở cuối tài liệu.
 
 ### v1.2.10 — Điều chỉnh thống kê (2026-09-20)
 - ✨ "Tổng tài liệu" đếm theo file, dịch lại cùng một file vẫn là một tài liệu. Thêm thẻ "Số lần dịch".

@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { documentKeyFor } = require('./lib/atomic-json-store');
+const { needsBilingualSections } = require('./lib/translate-output-mode');
 
 // Dark theme for system
 nativeTheme.themeSource = 'dark';
@@ -431,6 +432,10 @@ ipcMain.handle('fs:stat', async (event, filePath) => {
 });
 
 // Settings and History Handlers (initialized inside app.whenReady)
+// So hieu phien ban cho man hinh Gioi thieu. Lay tu app.getVersion() (chinh la
+// "version" trong package.json) de khong bao gio lech voi ban da dong goi.
+ipcMain.handle('app:version', () => app.getVersion());
+
 ipcMain.handle('settings:load', () => settingsManager.getAll());
 ipcMain.handle('settings:save', (event, settings) => settingsManager.saveAll(settings));
 ipcMain.handle('settings:get', (event, key) => settingsManager.get(key));
@@ -587,7 +592,8 @@ ipcMain.handle('ai:translateText', async (event, { pageNum, text, targetLang, se
       text,
       targetLang,
       settings.sourceLanguage || 'auto',
-      settings.translateMode === 'bilingual' || settings.bilingual,
+      // Cả "xen kẽ" lẫn "2 cột" đều cần model trả về cặp gốc–dịch.
+      needsBilingualSections(settings),
       (chunk) => {
         event.sender.send('translate:chunk', { pageNum, chunk, requestId });
       },

@@ -493,10 +493,25 @@ ${STEPS_HTML}
     if (q('setting-fontsize')) q('setting-fontsize').value = s.outputFontSize || 12;
     const mode = s.translateMode || (s.bilingual !== false ? 'bilingual' : 'clean');
     if (q('setting-translate-mode')) q('setting-translate-mode').value = mode;
+    updateTranslateModeDesc();
+  }
+
+  /** Mô tả dưới ô chọn phải đổi theo chế độ, không thì nó mô tả sai hai chế độ kia. */
+  function updateTranslateModeDesc() {
+    const el = document.getElementById('translate-mode-desc');
+    if (!el) return;
+    const descs = {
+      'bilingual': 'Mỗi đoạn văn gốc sẽ kèm bản dịch ngay bên dưới',
+      'two-column': 'File Word xuất ra dạng 2 cột: trái bản gốc, phải bản dịch, từng đoạn ngang hàng nhau. Bôi đen dọc một cột để copy riêng cột đó. Chữ trong bảng nhỏ hơn 2pt so với cỡ bạn chọn vì mỗi cột chỉ rộng nửa trang.',
+      'clean': 'Chỉ có bản dịch, không kèm văn bản gốc',
+    };
+    const mode = document.getElementById('setting-translate-mode')?.value || 'bilingual';
+    el.textContent = descs[mode] || descs['bilingual'];
   }
 
   function bindEvents() {
     document.getElementById('btn-save-settings')?.addEventListener('click', saveSettings);
+    document.getElementById('setting-translate-mode')?.addEventListener('change', updateTranslateModeDesc);
     document.getElementById('setting-ai-provider')?.addEventListener('change', () => {
       isAuthenticated = false; // Reset authentication state when toggling providers
       renderApiKeySection();
@@ -530,7 +545,8 @@ ${STEPS_HTML}
     s.sourceLanguage = 'auto';
     s.translateLanguage = s.translateLanguage || 'Tiếng Việt';
     s.translateMode = q('setting-translate-mode')?.value || 'bilingual';
-    s.bilingual = s.translateMode === 'bilingual'; // backward compat
+    // Cờ cũ cho bản trước 1.2.5: "2 cột" cũng là song ngữ, không phải bản dịch trơn.
+    s.bilingual = s.translateMode !== 'clean';
     s.outputFont = q('setting-font')?.value || 'Times New Roman';
     s.pageSize = q('setting-pagesize')?.value || 'A4';
     s.outputFontSize = parseInt(q('setting-fontsize')?.value) || 12;

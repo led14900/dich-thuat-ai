@@ -18,6 +18,8 @@ window.TranslateController = (() => {
   let startTime = null;
   let lastOutputPath = null;
   let lastFullMarkdown = null;
+  // So trang goc khop tung khoi trong lastFullMarkdown (xem collectPageNumbers).
+  let lastPageNumbers = [];
   let lastInputPath = null;
   let currentHistoryId = null;
   let currentRunId = null;
@@ -206,7 +208,8 @@ window.TranslateController = (() => {
           success: false,
           status: 'interrupted',
           runId: run.runId,
-          markdownContent: markdown
+          markdownContent: markdown,
+          pageNumbers: collectPageNumbers(pages)
         });
 
         await window.api.checkpoint.saveMeta(run.runId, { historySavedAt: Date.now() });
@@ -445,8 +448,8 @@ window.TranslateController = (() => {
         if (statusText) statusText.textContent = '🔄 Đang dịch...';
       }
 
-      if (settings.translateMode === 'bilingual' || settings.bilingual) {
-        appendPageOutput(pageNum, `\n\n--- Bản dịch song ngữ xen kẽ trang ${pageNum} ---\n\n`);
+      if (wantsBilingual(settings)) {
+        appendPageOutput(pageNum, `\n\n--- Bản dịch song ngữ trang ${pageNum} ---\n\n`);
       } else {
         appendPageOutput(pageNum, `\n\n--- Bản dịch trang ${pageNum} (${settings.translateLanguage}) ---\n\n`);
       }
@@ -461,7 +464,7 @@ window.TranslateController = (() => {
 
       if (!translateResult) throw new Error('Bản dịch rỗng');
 
-      if ((settings.translateMode === 'bilingual' || settings.bilingual) && translateResult.bilingualSections) {
+      if (wantsBilingual(settings) && translateResult.bilingualSections) {
         result.markdown = translateResult.text;
         result.bilingualSections = translateResult.bilingualSections;
       } else {
@@ -498,6 +501,20 @@ window.TranslateController = (() => {
    * their own copy — which is how a formatting change could land in one and not
    * the other. Callers pass an already page-sorted array.
    */
+  /**
+   * Số trang GỐC của đúng những trang có mặt trong buildFullMarkdown.
+   *
+   * buildFullMarkdown bỏ qua trang lỗi và trang bị bỏ qua. Khi tải lại file Word
+   * từ Lịch sử, chỗ tách trang đánh số lại theo thứ tự khối nên trang gốc 5 bị
+   * ghi thành trang 3. Trước 1.2.11 không ai thấy vì chân trang chưa in số trang
+   * gốc; giờ in ra rồi thì sai này đập vào mắt.
+   */
+  function collectPageNumbers(results) {
+    return (results || [])
+      .filter(r => r && !r.skipped && !r.error)
+      .map(r => r.page);
+  }
+
   function buildFullMarkdown(results) {
     const parts = [];
     for (const r of results) {
@@ -512,7 +529,9 @@ window.TranslateController = (() => {
       }
       parts.push('\n\n---\n\n');
     }
-    return parts.join('').trim();
+    // Bỏ dấu --- của khối cuối: để lại thì trang cuối có thêm một đường kẻ ngang
+    // không ai đặt, và lúc tải lại từ Lịch sử nó dính vào cuối trang cuối.
+    return parts.join('').replace(/\s*\n\s*---\s*$/, '').trim();
   }
 
   async function startConvert(filePath, selectedPages) {
@@ -784,6 +803,7 @@ window.TranslateController = (() => {
 
       // Aggregate full markdown for history
       lastFullMarkdown = buildFullMarkdown(pageResults);
+      lastPageNumbers = collectPageNumbers(pageResults);
       lastInputPath = filePath;
       lastOutputPath = null;
       currentHistoryId = null;
@@ -818,7 +838,8 @@ window.TranslateController = (() => {
           success: runStatus === 'completed',
           status: runStatus,
           runId: thisRunId,
-          markdownContent: lastFullMarkdown
+          markdownContent: lastFullMarkdown,
+          pageNumbers: lastPageNumbers
         });
       } catch (err) {
         console.error('Không thể lưu lịch sử:', err);
@@ -1039,6 +1060,7 @@ window.TranslateController = (() => {
 
       // Re-aggregate full markdown
       lastFullMarkdown = buildFullMarkdown(currentPageResults);
+      lastPageNumbers = collectPageNumbers(currentPageResults);
       const successCount = currentPageResults.filter(r => !r.skipped && !r.error).length;
 
       // Update database history record with updated successCount, tokens, cost, and markdown
@@ -1050,7 +1072,8 @@ window.TranslateController = (() => {
               pagesProcessed: successCount,
               totalTokens: totalInputTokens + totalOutputTokens,
               costUSD: totalCostUSD,
-              markdownContent: lastFullMarkdown
+              markdownContent: lastFullMarkdown,
+              pageNumbers: lastPageNumbers
             }
           });
         } catch (err) {
@@ -1180,6 +1203,16 @@ window.TranslateController = (() => {
     });
   }
 
+  /**
+   * Chế độ nào cần cặp gốc–dịch. Giữ khớp với lib/translate-output-mode.js —
+   * renderer không require() được module của main process.
+   */
+  function wantsBilingual(settings = {}) {
+    const mode = settings.translateMode
+      || (settings.bilingual === false ? 'clean' : 'bilingual');
+    return mode === 'bilingual' || mode === 'two-column';
+  }
+
   function createRunId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
@@ -1209,6 +1242,7 @@ window.TranslateController = (() => {
       if (hasPartialResult) {
         currentPageResults = savedPages;
         lastFullMarkdown = buildFullMarkdown(savedPages);
+        lastPageNumbers = collectPageNumbers(savedPages);
         lastInputPath = PDFRenderer.getCurrentFilePath();
         lastOutputPath = null;
 
@@ -1230,7 +1264,8 @@ window.TranslateController = (() => {
             success: false,
             status: 'cancelled',
             runId: currentRunId,
-            markdownContent: lastFullMarkdown
+            markdownContent: lastFullMarkdown,
+            pageNumbers: lastPageNumbers
           });
 
           // Đánh dấu đã ghi, để lần mở app sau không tạo thêm một mục trùng.
@@ -1362,6 +1397,9 @@ window.TranslateController = (() => {
     saveDocxFile,
     getLastOutputPath: () => lastOutputPath,
     getFullMarkdown: () => lastFullMarkdown,
-    getLastInputPath: () => lastInputPath
+    getLastInputPath: () => lastInputPath,
+    // Xuất .md cần kết quả từng trang (có cặp gốc–dịch) để dựng bảng 2 cột,
+    // chuỗi markdown đã ghép không tách ngược ra được nữa.
+    getPageResults: () => currentPageResults
   };
 })();
