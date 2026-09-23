@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+*.rar
+*.zip
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local settings / credentials (never commit)
+.env
+.env.*
+*-settings.json
+service-account*.json
+
+# Release binaries (vượt giới hạn 100MB của GitHub — phát hành qua GitHub Releases)
+*.exe

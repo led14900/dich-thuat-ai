@@ -1,0 +1,139 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+// ── Listener tracking (stays in preload scope, not exposed) ──
+const ALLOWED_CHANNELS = ['files:selected', 'nav:about', 'extract:chunk', 'translate:chunk', 'usage:stats'];
+const listenerRegistry = new Map(); // channel → [{callback, wrapped}]
+
+function addListener(channel, callback) {
+  if (!ALLOWED_CHANNELS.includes(channel)) return;
+  const wrapped = (_event, ...args) => callback(...args);
+  ipcRenderer.on(channel, wrapped);
+  if (!listenerRegistry.has(channel)) listenerRegistry.set(channel, []);
+  listenerRegistry.get(channel).push({ callback, wrapped });
+}
+
+function removeListener(channel, callback) {
+  const list = listenerRegistry.get(channel);
+  if (!list) return;
+  const idx = list.findIndex(l => l.callback === callback);
+  if (idx !== -1) {
+    ipcRenderer.removeListener(channel, list[idx].wrapped);
+    list.splice(idx, 1);
+  }
+}
+
+function removeAllListeners(channel) {
+  if (channel) {
+    ipcRenderer.removeAllListeners(channel);
+    listenerRegistry.delete(channel);
+  } else {
+    // Cleanup IPC data/chunk events (keep nav/menu listeners)
+    ['extract:chunk', 'translate:chunk', 'usage:stats'].forEach(ch => {
+      ipcRenderer.removeAllListeners(ch);
+      listenerRegistry.delete(ch);
+    });
+  }
+}
+
+// Expose a safe, limited API to the renderer process
+contextBridge.exposeInMainWorld('api', {
+  // Số hiệu phiên bản, lấy thẳng từ package.json.
+  //
+  // Trước đây số này được gõ tay vào index.html nên mỗi lần bump là quên sửa:
+  // bản 1.2.11 vẫn hiện "Phiên bản 1.2.10" trong màn hình Giới thiệu.
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:version'),
+  },
+
+  // Window controls
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize'),
+    close: () => ipcRenderer.send('window:close'),
+  },
+
+  // File dialogs
+  dialog: {
+    openFiles: () => ipcRenderer.invoke('dialog:openFiles'),
+    saveFile: (defaultName) => ipcRenderer.invoke('dialog:saveFile', defaultName),
+    confirm: (opts) => ipcRenderer.invoke('dialog:confirm', opts),
+  },
+
+  // Shell operations
+  shell: {
+    openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
+    showInFolder: (path) => ipcRenderer.invoke('shell:showItemInFolder', path),
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  },
+
+  // File system
+  fs: {
+    readFile: (path) => ipcRenderer.invoke('fs:readFile', path),
+    writeFile: (path, buffer) => ipcRenderer.invoke('fs:writeFile', path, buffer),
+    stat: (path) => ipcRenderer.invoke('fs:stat', path),
+  },
+
+  // Settings
+  settings: {
+    load: () => ipcRenderer.invoke('settings:load'),
+    save: (settings) => ipcRenderer.invoke('settings:save', settings),
+    get: (key) => ipcRenderer.invoke('settings:get', key),
+    set: (key, value) => ipcRenderer.invoke('settings:set', key, value),
+  },
+
+  // AI
+  ai: {
+    testConnection: (opts) => ipcRenderer.invoke('ai:testConnection', opts),
+    listModels: (opts) => ipcRenderer.invoke('ai:listModels', opts),
+    abortAll: () => ipcRenderer.send('ai:abortAll'),
+  },
+
+  // Single page text extraction
+  extractPageText: (opts) => ipcRenderer.invoke('ai:extractPageText', opts),
+  
+  // Single page translation
+  translateText: (opts) => ipcRenderer.invoke('ai:translateText', opts),
+
+  // DOCX generation (in main process)
+  docx: {
+    generate: (opts) => ipcRenderer.invoke('docx:generate', opts),
+  },
+
+  // History
+  history: {
+    getAll: (opts) => ipcRenderer.invoke('history:getAll', opts),
+    add: (entryData) => ipcRenderer.invoke('history:add', entryData),
+    updateOutputPath: (opts) => ipcRenderer.invoke('history:updateOutputPath', opts),
+    updateEntry: (opts) => ipcRenderer.invoke('history:updateEntry', opts),
+    getMarkdown: (id) => ipcRenderer.invoke('history:getMarkdown', id),
+    delete: (id) => ipcRenderer.invoke('history:delete', id),
+    clear: () => ipcRenderer.invoke('history:clear')
+  },
+
+  // Stats
+  stats: {
+    getAll: () => ipcRenderer.invoke('stats:getAll'),
+    deleteOlderThan: (days) => ipcRenderer.invoke('stats:deleteOlderThan', days),
+    clear: () => ipcRenderer.invoke('stats:clearAll'),
+    add: (record) => ipcRenderer.invoke('stats:add', record)
+  },
+
+  // Run checkpoints — persist each finished page so a long run survives a crash
+  checkpoint: {
+    append: (runId, record) => ipcRenderer.invoke('checkpoint:append', { runId, record }),
+    read: (runId) => ipcRenderer.invoke('checkpoint:read', runId),
+    list: () => ipcRenderer.invoke('checkpoint:list'),
+    prune: (days) => ipcRenderer.invoke('checkpoint:prune', days),
+    clear: (runId) => ipcRenderer.invoke('checkpoint:clear', runId),
+    saveMeta: (runId, meta) => ipcRenderer.invoke('checkpoint:saveMeta', { runId, meta }),
+    findForFile: (filePath) => ipcRenderer.invoke('checkpoint:findForFile', filePath)
+  },
+
+  // Event listeners (tracked for proper cleanup)
+  on: addListener,
+  off: removeListener,
+  removeAllListeners: removeAllListeners,
+
+  // Utility: get native file path from a dropped File object (Electron webUtils)
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+});
